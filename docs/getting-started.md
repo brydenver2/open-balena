@@ -245,6 +245,35 @@ make pki-custom
 make verify
 ```
 
+#### Cloudflare Tunnel
+
+OpenBalena supports secure tunneling through Cloudflare Tunnel for external access 
+without exposing ports directly. This is useful for testing or accessing your 
+openBalena server securely from anywhere.
+
+To use Cloudflare Tunnel:
+
+1. Create a tunnel in your Cloudflare dashboard and obtain the tunnel token
+2. Set the tunnel token environment variable:
+
+```bash
+export TUNNEL_TOKEN={{your_tunnel_token}}
+```
+
+3. Start the server with tunnel support:
+
+```bash
+make up
+```
+
+> **Important**: The `TUNNEL_TOKEN` environment variable is required for the Cloudflare 
+> tunnel service to start. If this variable is not set, the tunnel service will fail 
+> to start with a clear error message indicating the missing token.
+
+> **Note**: The Cloudflare tunnel service runs alongside other openBalena services and 
+> provides secure remote access to your openBalena installation without requiring 
+> port forwarding or firewall changes.
+
 ### Install the balena CLI on the local machine
 
 Follow the [balena CLI installation instructions] to install the balena CLI on the local
