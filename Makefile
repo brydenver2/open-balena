@@ -58,9 +58,17 @@ ifneq ($(GANDI_API_TOKEN),)
 endif
 ifneq ($(HAPROXY_CRT),)
 	@echo "HAPROXY_CRT=$(HAPROXY_CRT)" >> .env
+	@echo "TRAEFIK_CRT=$(HAPROXY_CRT)" >> .env
 endif
 ifneq ($(HAPROXY_KEY),)
 	@echo "HAPROXY_KEY=$(HAPROXY_KEY)" >> .env
+	@echo "TRAEFIK_KEY=$(HAPROXY_KEY)" >> .env
+endif
+ifneq ($(TRAEFIK_CRT),)
+	@echo "TRAEFIK_CRT=$(TRAEFIK_CRT)" >> .env
+endif
+ifneq ($(TRAEFIK_KEY),)
+	@echo "TRAEFIK_KEY=$(TRAEFIK_KEY)" >> .env
 endif
 ifneq ($(ROOT_CA),)
 	@echo "ROOT_CA=$(ROOT_CA)" >> .env
@@ -146,7 +154,7 @@ auto-pki: config # Start all services using LetsEncrypt and ACME
 	@$(MAKE) waitlog SERVICE=cert-manager LOG_STRING="/certs/export/chain.pem Certificate will not expire in [0-9] days"
 	@$(MAKE) waitlog SERVICE=cert-manager LOG_STRING="subject=CN = ${DNS_TLD}"
 	@$(MAKE) waitlog SERVICE=cert-manager LOG_STRING="issuer=C = US, O = Let's Encrypt, CN = .*"
-	@$(MAKE) wait SERVICE=haproxy
+	@$(MAKE) wait SERVICE=traefik
 	@$(MAKE) showenv
 	@$(MAKE) showpass
 

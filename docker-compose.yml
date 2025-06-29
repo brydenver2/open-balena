@@ -198,40 +198,55 @@ services:
       <<: *default-healthcheck
       test: echo INFO | redis-cli | grep redis_version
 
-  # https://github.com/balena-io/open-balena-haproxy
-  haproxy:
+  # Traefik reverse proxy (replaces HAProxy)
+  traefik:
     <<: [
       *base-service,
       *with-default-privileges,
       *with-default-volumes,
     ]
-    build: src/haproxy
+    build: src/traefik
     sysctls:
       # https://github.com/docker-library/haproxy/issues/160
       net.ipv4.ip_unprivileged_port_start: 0
     healthcheck:
-      <<: *default-healthcheck
-      test: true | openssl s_client -connect localhost:443
+      test: traefik healthcheck --ping
+      interval: 30s
+      timeout: 5s
+      retries: 3
     ports:
-      # haproxy/http
+      # HTTP
       - '80:80/tcp'
-      # haproxy/tcp-router
+      # HTTPS
       - '443:443/tcp'
-      # haproxy/stats
+      # Traefik dashboard/stats
       - '1936:1936/tcp'
     environment:
       LOGLEVEL: info
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # Error pages service for Traefik
+  error-pages:
+    <<: *base-service
+    build: src/error-pages
+    healthcheck:
+      test: curl -f http://localhost/404.html || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   # dynamically configure Docker network aliases based on DNS_TLD and ALIAS list
   # allows DNS resolution from systemd-less images on the Docker network
-  haproxy-sidecar:
+  # Updated to work with Traefik instead of HAProxy
+  traefik-sidecar:
     <<: *base-service
-    build: src/haproxy-sidecar
+    build: src/traefik-sidecar
     volumes:
       - /var/run/docker.sock:/host/run/docker.sock
     environment:
       DOCKER_HOST: unix:///host/run/docker.sock
-      # resolved internally as {{service}}.{{dns-tld-without-balena-device-uuid}} to haproxy service
+      # resolved internally as {{service}}.{{dns-tld-without-balena-device-uuid}} to traefik service
       ALIASES: api,ca,cloudlink,db,delta,logs,redis,registry2,s3,stats,tunnel
     labels:
       io.balena.features.balena-socket: 1

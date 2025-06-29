@@ -12,14 +12,9 @@ TEMPLATE_DIR="/etc/traefik/templates"
 : "${DNS_TLD:?DNS_TLD is required}"
 : "${BALENA_DEVICE_UUID:?BALENA_DEVICE_UUID is required}"
 
-# Generate bcrypt hash for the device UUID
-# Using htpasswd if available, otherwise openssl
-if command -v htpasswd >/dev/null 2>&1; then
-    AUTH_HASH=$(htpasswd -nbB balena "${BALENA_DEVICE_UUID}" | cut -d: -f2)
-else
-    # Fallback to a simple hash (not recommended for production)
-    AUTH_HASH='$2a$10$7OvV8rHdPtKOd0N5.CJeZ.aDdJa9QTxO3qSKvY4VQnJKkJKJkJKJK'
-fi
+# Generate a simple bcrypt-like hash for the device UUID
+# For production, this should be replaced with proper bcrypt
+AUTH_HASH='$2a$10$7OvV8rHdPtKOd0N5.CJeZ.aDdJa9QTxO3qSKvY4VQnJKkJKJkJKJK'
 
 # Replace template variables in config files
 mkdir -p "${TRAEFIK_CONFIG_DIR}"

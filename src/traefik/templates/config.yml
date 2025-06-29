@@ -6,7 +6,7 @@ http:
   routers:
     # API service router (equivalent to HAProxy host-api-backend)
     api-router:
-      rule: "Host(`api.{{ env "DNS_TLD" }}`)"
+      rule: "HostRegexp(`api\\..*`)"
       service: api-service
       entryPoints:
         - web

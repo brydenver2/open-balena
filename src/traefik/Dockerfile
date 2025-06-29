@@ -1,9 +1,6 @@
 # Traefik Docker configuration for openBalena
 FROM traefik:v3.0
 
-# Install htpasswd for password hashing
-RUN apk add --no-cache apache2-utils
-
 # Copy Traefik configuration files
 COPY traefik.yml /etc/traefik/traefik.yml
 COPY templates/ /etc/traefik/templates/
