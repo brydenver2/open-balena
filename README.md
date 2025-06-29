@@ -50,6 +50,230 @@ Our [Getting Started guide][getting-started] is the most direct path to getting
 an openBalena installation up and running and successfully deploying your
 application to your device(s).
 
+## Setup and Configuration
+
+This repository has been enhanced to integrate Kubernetes-like configurations from the open-balena-helm chart while maintaining Docker Compose compatibility. The setup includes Traefik for reverse proxy, Cloudflared for tunnel access, and additional services for enhanced functionality.
+
+### Prerequisites
+
+- Docker and Docker Compose v2.0+
+- Minimum 4GB RAM and 20GB disk space
+- A domain name with DNS management capabilities
+- (Optional) Cloudflare account for tunnel access
+
+### Quick Start
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/brydenver2/open-balena.git
+   cd open-balena
+   ```
+
+2. **Set required environment variables**:
+   ```bash
+   export DNS_TLD=your-domain.com
+   export SUPERUSER_EMAIL=admin@your-domain.com
+   ```
+
+3. **Generate configuration**:
+   ```bash
+   make config
+   ```
+
+4. **Start all services**:
+   ```bash
+   make up
+   ```
+
+### Advanced Configuration
+
+#### Traefik Reverse Proxy Configuration
+
+The setup uses Traefik v3.0 as the reverse proxy, replacing HAProxy. Key features:
+- Automatic SSL/TLS termination
+- Host-based routing for all services
+- Built-in dashboard on port 1936
+- Health monitoring and load balancing
+
+**Service Routing**:
+- `api.your-domain.com` → API service
+- `registry2.your-domain.com` → Container registry
+- `s3.your-domain.com` → S3 storage
+- `admin.your-domain.com` → Web UI dashboard
+- `remote.your-domain.com` → Remote access service
+- `postgrest.your-domain.com` → PostgreSQL REST API
+
+#### Cloudflared Tunnel Setup
+
+For secure external access without port forwarding:
+
+1. **Set up Cloudflare tunnel token**:
+   ```bash
+   export TUNNEL_TOKEN=your-cloudflare-tunnel-token
+   make config
+   ```
+
+2. **Configure DNS records** in Cloudflare:
+   - Point `*.your-domain.com` to your tunnel
+   - Ensure CNAME records are properly configured
+
+#### Resource Management
+
+Services are configured with resource constraints based on the Helm chart values:
+
+**Core Services**:
+- **API**: 1GB memory limit, 512MB reserved
+- **Database**: 1GB memory limit, 512MB reserved
+- **Registry**: 512MB memory limit, 256MB reserved
+- **VPN**: 512MB memory limit, 256MB reserved
+
+**Additional Services**:
+- **Builder**: 2GB memory limit, 1GB reserved (for container builds)
+- **Delta**: 1GB memory limit, 512MB reserved (for delta updates)
+- **UI/Remote/Helper**: 512MB memory limit, 256MB reserved
+
+#### Storage Configuration
+
+Persistent volumes are configured for all services:
+- **Database**: `db-data` volume for PostgreSQL data
+- **S3**: `s3-data` volume for object storage
+- **Registry**: Data stored in S3 backend
+- **Builder**: `builder-data` volume for Docker builds
+- **Delta**: `delta-data` volume for delta processing
+
+### Environment Variables
+
+Key environment variables that can be customized:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DNS_TLD` | Your domain name | Required |
+| `SUPERUSER_EMAIL` | Admin email address | admin@{DNS_TLD} |
+| `PRODUCTION_MODE` | Production mode flag | true |
+| `TUNNEL_TOKEN` | Cloudflare tunnel token | Optional |
+| `TRAEFIK_CRT` | Custom SSL certificate path | Optional |
+| `TRAEFIK_KEY` | Custom SSL private key path | Optional |
+
+### Service Architecture
+
+The enhanced setup includes these services:
+
+#### Core Services (Required)
+- **API**: Main application API and device management
+- **Registry**: Container image registry
+- **VPN**: Device connectivity and tunneling
+- **Database**: PostgreSQL for application data
+- **S3**: Object storage (MinIO-based)
+- **Redis**: Caching and session storage
+- **Traefik**: Reverse proxy and load balancer
+
+#### Certificate Management
+- **cert-manager**: Automated SSL certificate management
+- **balena-ca**: Internal certificate authority
+
+#### Enhanced Services (Optional)
+- **UI**: Web-based administration dashboard
+- **Remote**: CLI remote access service
+- **Postgrest**: REST API for database access
+- **Builder**: Container image building service
+- **Delta**: Binary delta update service
+- **Helper**: Additional utility services
+- **Cloudflared**: Secure tunnel service
+
+#### Support Services
+- **traefik-sidecar**: Dynamic DNS alias management
+- **error-pages**: Custom error page service
+
+### Monitoring and Maintenance
+
+#### Health Checks
+All services include health checks:
+```bash
+# Check service status
+docker compose ps
+
+# View service logs
+docker compose logs [service-name]
+
+# Check Traefik dashboard
+curl http://localhost:1936
+```
+
+#### Resource Monitoring
+```bash
+# View resource usage
+docker stats
+
+# Check volume usage
+docker system df
+```
+
+#### Scaling Services
+Services can be scaled using Docker Compose:
+```bash
+# Scale API service to 3 replicas
+docker compose up --scale api=3 -d
+
+# Scale registry service to 2 replicas  
+docker compose up --scale registry=2 -d
+```
+
+### Troubleshooting
+
+#### Common Issues
+
+1. **Port conflicts**: Ensure ports 80, 443, and 1936 are available
+2. **DNS resolution**: Verify domain DNS settings point to your server
+3. **Certificate issues**: Check `TRAEFIK_CRT` and `TRAEFIK_KEY` paths
+4. **Memory issues**: Monitor resource usage and adjust limits if needed
+
+#### Debug Commands
+```bash
+# Validate configuration
+docker compose config
+
+# Check Traefik configuration
+docker compose logs traefik
+
+# Test API connectivity
+make verify
+
+# View all service logs
+docker compose logs -f
+```
+
+#### Service Dependencies
+Services have dependency chains. If one fails, check its dependencies:
+- UI/Remote → API → Database, Redis, S3
+- Registry → Redis, S3
+- All services → Traefik (for routing)
+
+### Migration from Standard openBalena
+
+If upgrading from a standard openBalena installation:
+
+1. **Backup existing data**:
+   ```bash
+   docker compose down
+   docker run --rm -v $(pwd):/backup alpine tar czf /backup/volumes-backup.tar.gz /var/lib/docker/volumes/
+   ```
+
+2. **Update configuration**:
+   ```bash
+   git pull origin main
+   make config
+   ```
+
+3. **Start enhanced services**:
+   ```bash
+   make up
+   ```
+
+4. **Verify functionality**:
+   ```bash
+   make verify
+   ```
+
 
 ## Compatibility
 

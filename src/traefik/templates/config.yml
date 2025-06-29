@@ -97,6 +97,84 @@ http:
       tls: true
       priority: 50
 
+    # UI service router for admin dashboard
+    ui-router:
+      rule: "HostRegexp(`{subdomain:admin\\..*}`)"
+      service: ui-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 45
+
+    # Remote service router for balena CLI access
+    remote-router:
+      rule: "HostRegexp(`{subdomain:remote\\..*}`)"
+      service: remote-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 44
+
+    # Postgrest service router for REST API
+    postgrest-router:
+      rule: "HostRegexp(`{subdomain:postgrest\\..*}`)"
+      service: postgrest-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 43
+
+    # Builder service router
+    builder-router:
+      rule: "HostRegexp(`{subdomain:builder\\..*}`)"
+      service: builder-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 42
+
+    # Delta service router
+    delta-router:
+      rule: "HostRegexp(`{subdomain:delta\\..*}`)"
+      service: delta-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 41
+
+    # Helper service router
+    helper-router:
+      rule: "HostRegexp(`{subdomain:helper\\..*}`)"
+      service: helper-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 40
+
     # Health check router (equivalent to HAProxy monitor-uri)
     health-router:
       rule: "Path(`/health`)"
@@ -189,6 +267,66 @@ http:
       loadBalancer:
         servers:
           - url: "http://balena-ca:8889"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # UI backend service
+    ui-service:
+      loadBalancer:
+        servers:
+          - url: "https://ui:443"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # Remote backend service
+    remote-service:
+      loadBalancer:
+        servers:
+          - url: "http://remote:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # Postgrest backend service
+    postgrest-service:
+      loadBalancer:
+        servers:
+          - url: "http://postgrest:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # Builder backend service
+    builder-service:
+      loadBalancer:
+        servers:
+          - url: "http://builder:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # Delta backend service
+    delta-service:
+      loadBalancer:
+        servers:
+          - url: "http://delta:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # Helper backend service
+    helper-service:
+      loadBalancer:
+        servers:
+          - url: "http://helper:80"
         healthCheck:
           path: "/"
           interval: "30s"

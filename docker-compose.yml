@@ -8,6 +8,8 @@ volumes:
   cert-manager-data: {}
   certs-data: {}
   db-data: {}
+  delta-data: {}
+  helper-data: {}
   pki-data: {}
   redis-data: {}
   resin-data: {}
@@ -27,6 +29,12 @@ x-default-environment: &default-environment
   DB_USER: docker
   LOG_LEVEL: DEBUG
   PRODUCTION_MODE: 'true'
+  # Additional environment variables from Helm global values
+  BALENA_HOST: ${DNS_TLD}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  S3_ENDPOINT: s3
+  S3_REGION: us-east-1
 
 x-default-healthcheck-trait: &with-default-healthcheck
   healthcheck:
@@ -111,6 +119,13 @@ services:
       VPN_PORT: 443
       WEBRESOURCES_S3_BUCKET: web-resources
       WEBRESOURCES_S3_REGION: 'us-east-1'  # this is required for minio
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
   # https://github.com/balena-io/open-balena-registry
   registry:
@@ -135,6 +150,13 @@ services:
       REGISTRY2_S3_BUCKET: registry-data
       REGISTRY2_STORAGEPATH: /data
       TOKENS_CONFIG: REGISTRY2_SECRETKEY:hex
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   # https://github.com/balena-io/open-balena-vpn
   vpn:
@@ -158,6 +180,13 @@ services:
       VPN_SERVICE_REGISTER_INTERFACE: eth0
     devices:
       - /dev/net/tun
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   # https://github.com/balena-io/open-balena-db
   db:
@@ -169,6 +198,13 @@ services:
       <<: *default-environment
     healthcheck:
       test: pg_isready -U "$${DB_USER}" -d "$${DB_NAME}"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
   # https://github.com/balena-io/open-balena-s3
   s3:
@@ -186,6 +222,13 @@ services:
       BUCKETS: registry-data;web-resources
       HOSTS_CONFIG: REGISTRY2_S3_REGION_ENDPOINT:s3,WEBRESOURCES_S3_HOST:s3
       TOKENS_CONFIG: REGISTRY2_S3_KEY:hex,REGISTRY2_S3_SECRET:hex,S3_MINIO_ACCESS_KEY:REGISTRY2_S3_KEY,S3_MINIO_SECRET_KEY:REGISTRY2_S3_SECRET,WEBRESOURCES_S3_ACCESS_KEY:REGISTRY2_S3_KEY,WEBRESOURCES_S3_SECRET_KEY:REGISTRY2_S3_SECRET
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   # https://hub.docker.com/_/redis
   redis:
@@ -197,6 +240,13 @@ services:
     healthcheck:
       <<: *default-healthcheck
       test: echo INFO | redis-cli | grep redis_version
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
 
   # Traefik reverse proxy (replaces HAProxy)
   traefik:
@@ -247,7 +297,7 @@ services:
     environment:
       DOCKER_HOST: unix:///host/run/docker.sock
       # resolved internally as {{service}}.{{dns-tld-without-balena-device-uuid}} to traefik service
-      ALIASES: api,ca,cloudlink,db,delta,logs,redis,registry2,s3,stats,tunnel
+      ALIASES: api,ca,cloudlink,db,delta,logs,redis,registry2,s3,stats,tunnel,admin,remote,postgrest,builder,helper
     labels:
       io.balena.features.balena-socket: 1
       io.balena.features.supervisor-api: 1
@@ -303,6 +353,162 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # OpenBalena UI service for web interface
+  ui:
+    <<: [
+      *base-service,
+      *with-default-healthcheck,
+      *with-default-privileges,
+      *with-default-volumes,
+    ]
+    image: harmonidcaputo/open-balena-ui:latest
+    depends_on:
+      - api
+      - s3
+    environment:
+      PORT: 443
+      REACT_APP_OPEN_BALENA_UI_URL: https://admin.${DNS_TLD}
+      REACT_APP_OPEN_BALENA_API_URL: https://api.${DNS_TLD}
+      REACT_APP_OPEN_BALENA_API_VERSION: v35.0.5
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Remote access service for balena tunneling
+  remote:
+    <<: [
+      *base-service,
+      *with-default-healthcheck,
+      *with-default-privileges,
+      *with-default-volumes,
+    ]
+    image: harmonidcaputo/open-balena-remote:latest
+    depends_on:
+      - api
+    ports:
+      - '10000:10000/tcp'
+      - '10001:10001/tcp'
+      - '10002:10002/tcp'
+      - '10003:10003/tcp'
+      - '10004:10004/tcp'
+      - '10005:10005/tcp'
+      - '10006:10006/tcp'
+      - '10007:10007/tcp'
+      - '10008:10008/tcp'
+      - '10009:10009/tcp'
+    environment:
+      BALENARC_BALENA_URL: ${DNS_TLD}
+      HOST_MODE: secure
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # PostgreSQL REST API service
+  postgrest:
+    <<: [
+      *base-service,
+      *with-default-healthcheck,
+      *with-default-privileges,
+    ]
+    image: harmonidcaputo/open-balena-postgrest:latest
+    depends_on:
+      - db
+    environment:
+      <<: *default-environment
+      DB_HOST: db
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # Builder service for container image building
+  builder:
+    <<: [
+      *base-service,
+      *with-default-healthcheck,
+      *with-default-privileges,
+      *with-default-volumes,
+    ]
+    image: harmonidcaputo/open-balena-builder:latest
+    depends_on:
+      - api
+      - s3
+    volumes:
+      - builder-data:/var/lib/docker
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      <<: *default-environment
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Delta service for binary delta updates
+  delta:
+    <<: [
+      *base-service,
+      *with-default-healthcheck,
+      *with-default-privileges,
+      *with-default-volumes,
+    ]
+    image: harmonidcaputo/open-balena-delta:latest
+    depends_on:
+      - api
+      - s3
+    volumes:
+      - delta-data:/data
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      <<: *default-environment
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Helper service for additional utilities
+  helper:
+    <<: [
+      *base-service,
+      *with-default-healthcheck,
+      *with-default-privileges,
+      *with-default-volumes,
+    ]
+    image: harmonidcaputo/open-balena-helper:latest
+    depends_on:
+      - api
+    volumes:
+      - helper-data:/data
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      <<: *default-environment
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
 
 
