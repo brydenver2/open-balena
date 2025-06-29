@@ -76,6 +76,15 @@ endif
 ifneq ($(TUNNEL_TOKEN),)
 	@echo "TUNNEL_TOKEN=$(TUNNEL_TOKEN)" >> .env
 endif
+ifneq ($(BANNER_IMAGE),)
+	@echo "BANNER_IMAGE=$(BANNER_IMAGE)" >> .env
+endif
+ifneq ($(REMOTE_SENTRY_DSN),)
+	@echo "REMOTE_SENTRY_DSN=$(REMOTE_SENTRY_DSN)" >> .env
+endif
+ifneq ($(OPENBALENA_API_VERSION),)
+	@echo "OPENBALENA_API_VERSION=$(OPENBALENA_API_VERSION)" >> .env
+endif
 	@$(MAKE) showenv
 
 .PHONY: wait

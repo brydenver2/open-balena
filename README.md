@@ -17,6 +17,7 @@ images to your devices.
 To learn more about openBalena, visit [balena.io/open][open-balena-website].
 
 - [Features](#features)
+- [Enhanced Services](#enhanced-services)
 - [Getting Started](#getting-started)
 - [Compatibility](#compatibility)
 - [Documentation](#documentation)
@@ -42,6 +43,51 @@ To learn more about openBalena, visit [balena.io/open][open-balena-website].
 - **Scalable**: Deploy and manage one device, or one million
 - **Powerful API & SDK**: Extend openBalena to fit your needs
 - **Built-in VPN**: Access your devices regardless of their network environment
+
+## Enhanced Services
+
+OpenBalena includes additional services that provide enhanced functionality:
+
+### Core Services
+- **API**: REST API for device and application management
+- **Registry**: Container image registry with delta sync
+- **VPN**: Secure device connectivity through NAT/firewalls
+- **Database**: PostgreSQL for application and device data
+- **S3**: Object storage for images and artifacts
+- **Redis**: In-memory cache for improved performance
+
+### Additional Services
+- **UI/Admin Dashboard**: Web-based management interface at `https://admin.{DNS_TLD}`
+  - Device fleet management
+  - Application monitoring
+  - User-friendly interface for OpenBalena operations
+  
+- **Builder**: Container build service at `https://builder.{DNS_TLD}`
+  - Multi-architecture container builds
+  - Integration with device deployment pipeline
+  
+- **Delta**: Delta update processing at `https://delta.{DNS_TLD}`
+  - Efficient incremental updates
+  - Reduced bandwidth usage for device updates
+  
+- **Helper**: Utility service for downloads and supervisor releases
+  - Handles `/download` and `/v6/supervisor_release` endpoints
+  - Integrated with API service routing
+  
+- **PostgREST**: RESTful API for PostgreSQL at `https://postgrest.{DNS_TLD}`
+  - Direct database access via REST
+  - Automatic API generation from database schema
+  
+- **Remote**: Device remote access at `https://remote.{DNS_TLD}`
+  - SSH and remote terminal access to devices
+  - Secure tunneling through OpenBalena infrastructure
+
+### Reverse Proxy & Tunneling
+- **Traefik**: Modern reverse proxy with automatic service discovery
+- **Cloudflared**: Secure tunnel access without port forwarding
+- **Certificate Management**: Automatic SSL/TLS certificate handling
+
+All services are accessible via subdomains of your configured `DNS_TLD` and are automatically routed through Traefik for secure HTTPS access.
 
 
 ## Getting Started
