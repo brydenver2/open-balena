@@ -1,0 +1,27 @@
+# Error pages configuration for Traefik
+# Equivalent to HAProxy errorfiles balena-http-errors
+
+http:
+  middlewares:
+    # Error pages middleware to handle HTTP errors
+    error-pages:
+      errors:
+        status:
+          - "400-599"
+        service: error-service
+        query: "/{status}.html"
+
+  services:
+    # Error service that serves static error pages
+    error-service:
+      loadBalancer:
+        servers:
+          - url: "http://error-pages:80"
+
+  routers:
+    # Error pages router
+    error-router:
+      rule: "Host(`error.internal`)"
+      service: error-service
+      entryPoints:
+        - web
