@@ -1,0 +1,311 @@
+# Traefik dynamic configuration
+# Converts HAProxy backends, ACLs, and routing rules
+
+# HTTP routers
+http:
+  routers:
+    # API service router (equivalent to HAProxy host-api-backend)
+    api-router:
+      rule: "HostRegexp(`api\\..*`)"
+      service: api-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 100
+
+    # Registry service router (equivalent to HAProxy host-registry-backend)
+    registry-router:
+      rule: "HostRegexp(`{subdomain:registry2\\..*}`)"
+      service: registry-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto-http
+      tls: true
+      priority: 90
+
+    # S3 service router (equivalent to HAProxy host-s3-backend)
+    s3-router:
+      rule: "HostRegexp(`{subdomain:s3\\..*}`)"
+      service: s3-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto-http
+      tls: true
+      priority: 80
+
+    # MinIO service router (equivalent to HAProxy host-minio-backend)
+    minio-router:
+      rule: "HostRegexp(`{subdomain:minio\\..*}`)"
+      service: minio-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto-http
+      tls: true
+      priority: 70
+
+    # CA service router with authentication (equivalent to HAProxy host-ca-backend)
+    # CRL requests are allowed without auth (equivalent to !balena-ca-crl)
+    ca-crl-router:
+      rule: "HostRegexp(`{subdomain:ca\\..*}`) && PathPrefix(`/api/v1/cfssl/crl`)"
+      service: ca-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 65
+
+    # CA service router with authentication for everything else
+    ca-router:
+      rule: "HostRegexp(`{subdomain:ca\\..*}`)"
+      service: ca-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+        - ca-auth
+      tls: true
+      priority: 60
+
+    # OCSP service router (equivalent to HAProxy host-ocsp-backend)
+    ocsp-router:
+      rule: "HostRegexp(`{subdomain:ocsp\\..*}`)"
+      service: ocsp-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 50
+
+    # Health check router (equivalent to HAProxy monitor-uri)
+    health-router:
+      rule: "Path(`/health`)"
+      service: api-service
+      entryPoints:
+        - web
+        - websecure
+      priority: 200
+
+    # Default PDU router (equivalent to HAProxy host-pdu-default)
+    pdu-router:
+      rule: "HostRegexp(`{subdomain:.*\\.devices\\..*}`) || HostRegexp(`{subdomain:.*\\.balena-.*-devices\\..*}`)"
+      service: api-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 10
+
+    # Default catch-all router (equivalent to HAProxy default_backend api-backend)
+    default-router:
+      rule: "HostRegexp(`{host:.*}`)"
+      service: api-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 1
+
+  # HTTP services (equivalent to HAProxy backends)
+  services:
+    # API backend service
+    api-service:
+      loadBalancer:
+        servers:
+          - url: "http://api:80"
+        healthCheck:
+          path: "/ping"
+          interval: "30s"
+          timeout: "5s"
+
+    # Registry backend service
+    registry-service:
+      loadBalancer:
+        servers:
+          - url: "http://registry:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # S3 backend service
+    s3-service:
+      loadBalancer:
+        servers:
+          - url: "http://s3:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # MinIO backend service
+    minio-service:
+      loadBalancer:
+        servers:
+          - url: "http://s3:43697"
+        healthCheck:
+          path: "/minio/health/live"
+          interval: "30s"
+          timeout: "5s"
+
+    # CA backend service
+    ca-service:
+      loadBalancer:
+        servers:
+          - url: "http://balena-ca:8888"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # OCSP backend service  
+    ocsp-service:
+      loadBalancer:
+        servers:
+          - url: "http://balena-ca:8889"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+  # Middleware definitions
+  middlewares:
+    # CORS headers middleware (equivalent to HAProxy lua.cors)
+    cors-headers:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        accessControlAllowOriginList:
+          - "*"
+        accessControlAllowHeaders:
+          - "*"
+        accessControlExposeHeaders:
+          - "*"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 100
+        addVaryHeader: true
+
+    # Forward protocol for HTTPS (equivalent to HAProxy X-Forwarded-Proto https)
+    forwarded-proto:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+
+    # Forward protocol for HTTP (equivalent to HAProxy X-Forwarded-Proto http) 
+    forwarded-proto-http:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "http"
+
+    # Basic authentication for CA service (equivalent to HAProxy http_auth)
+    # Note: Password should be bcrypt hashed in production
+    ca-auth:
+      basicAuth:
+        users:
+          - "balena:$2a$10$7OvV8rHdPtKOd0N5.CJeZ.aDdJa9QTxO3qSKvY4VQnJKkJKJkJKJK"  # placeholder hash
+        removeHeader: true
+        realm: "balena-ca"
+
+    # Rate limiting middleware
+    rate-limit:
+      rateLimit:
+        burst: 100
+        average: 50
+
+# TCP routers and services for VPN and tunnel traffic
+tcp:
+  routers:
+    # Tunnel router - handles tunnel.* SNI traffic (equivalent to HAProxy sni-host-tunnel)
+    tunnel-router:
+      rule: "HostSNI(`tunnel.*`)"
+      service: tunnel-service
+      entryPoints:
+        - websecure
+      tls:
+        passthrough: false
+
+    # VPN router for non-SSL traffic (equivalent to HAProxy use_backend vpn-backend if !is_ssl)
+    # This handles OpenVPN traffic which is not SSL
+    vpn-router:
+      rule: "HostSNI(`*`)"
+      service: vpn-service
+      entryPoints:
+        - websecure
+      tls:
+        passthrough: true
+      priority: 1
+
+  services:
+    # Tunnel backend service (equivalent to HAProxy tunnel-backend through vpn:3128)
+    tunnel-service:
+      loadBalancer:
+        servers:
+          - address: "vpn:3128"
+        proxyProtocol:
+          version: 2
+
+    # VPN backend service (equivalent to HAProxy vpn-backend)
+    vpn-service:
+      loadBalancer:
+        servers:
+          - address: "vpn:443"
+        proxyProtocol:
+          version: 2
+
+# TLS configuration (equivalent to HAProxy SSL settings)
+tls:
+  options:
+    default:
+      # Equivalent to HAProxy ssl-min-ver TLSv1.2
+      minVersion: "VersionTLS12"
+      cipherSuites:
+        - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+        - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+        - "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
+      curvePreferences:
+        - "CurveP521"
+        - "CurveP384"
+      sniStrict: false
+
+  # Certificate configuration (equivalent to HAProxy ssl crt)
+  certificates:
+    - certFile: "/certs/cert.pem"
+      keyFile: "/certs/privkey.pem"
+
+# Store configuration for certificate persistence
+stores:
+  default:
+    defaultCertificate:
+      certFile: "/certs/cert.pem"
+      keyFile: "/certs/privkey.pem"

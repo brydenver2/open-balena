@@ -1,0 +1,87 @@
+# Traefik static configuration
+# Converts functionality from HAProxy configuration
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+# Entry points (equivalent to HAProxy listeners/frontends)
+entryPoints:
+  # HTTP traffic on port 80
+  web:
+    address: ":80"
+    
+  # HTTPS/SSL traffic on port 443 
+  websecure:
+    address: ":443"
+    
+  # Stats and monitoring on port 1936
+  traefik:
+    address: ":1936"
+
+# API and dashboard configuration  
+api:
+  dashboard: true
+  insecure: true  # Allow access via port 1936 for stats (equivalent to HAProxy stats)
+
+# Providers for service discovery
+providers:
+  # File provider for static configuration
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+    
+  # Docker provider for container service discovery
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: "open-balena_default"
+
+# Logging configuration (equivalent to HAProxy log global)
+log:
+  level: "${LOGLEVEL:-INFO}"
+  format: "json"
+
+# Access logs (equivalent to HAProxy httplog)
+accessLog:
+  format: "json"
+  fields:
+    defaultMode: keep
+    names:
+      ClientHost: keep
+      ClientPort: keep
+      ClientUsername: keep
+      DownstreamContentSize: keep
+      DownstreamStatus: keep
+      Duration: keep
+      OriginContentSize: keep
+      OriginDuration: keep
+      OriginStatus: keep
+      RequestAddr: keep
+      RequestHost: keep
+      RequestMethod: keep
+      RequestPath: keep
+      RequestPort: keep
+      RequestProtocol: keep
+      RequestScheme: keep
+      RetryAttempts: keep
+      StartLocal: keep
+      StartUTC: keep
+
+# Metrics for monitoring
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    addRoutersLabels: true
+
+# Global HTTP configuration
+serversTransport:
+  insecureSkipVerify: true
+  # Equivalent to HAProxy timeouts
+  maxIdleConnsPerHost: 200
+  dialTimeout: "5s"
+  responseHeaderTimeout: "63s"
+
+# Ping endpoint for health checks
+ping:
+  entryPoint: "traefik"
