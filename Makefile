@@ -73,6 +73,9 @@ endif
 ifneq ($(ROOT_CA),)
 	@echo "ROOT_CA=$(ROOT_CA)" >> .env
 endif
+ifneq ($(TUNNEL_TOKEN),)
+	@echo "TUNNEL_TOKEN=$(TUNNEL_TOKEN)" >> .env
+endif
 	@$(MAKE) showenv
 
 .PHONY: wait
