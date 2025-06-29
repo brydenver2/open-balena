@@ -219,7 +219,7 @@ make verify
 
 #### Custom SSL
 
-openBalena server also supports custom/manual TLS configuration. You must supply your own
+openBalena server supports custom/manual TLS configuration. You must supply your own
 SSL certificate, private key and a full certificate signing chain. A wildcard SSL
 certificate covering the whole domain is recommended.
 
@@ -230,6 +230,11 @@ export HAPROXY_CRT="{{ base64 encoded server certificate }}"
 export ROOT_CA="{{ .. intermediate certificates }}"
 export HAPROXY_KEY="{{ .. private key }}"
 ```
+
+> **Note**: OpenBalena has migrated from HAProxy to Traefik as the reverse proxy. 
+> For backward compatibility, the `HAPROXY_CRT` and `HAPROXY_KEY` variables are still 
+> supported and automatically mapped to Traefik configuration. You can also use 
+> `TRAEFIK_CRT` and `TRAEFIK_KEY` directly.
 
 Pipe the plaintext via `.. | openssl base64 -A` to encode.
 
