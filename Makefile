@@ -15,6 +15,20 @@ SUPERUSER_EMAIL ?= admin@$(DNS_TLD)
 TMPKI := $(shell mktemp)
 VERBOSE ?= false
 
+# External service configuration
+EXTERNAL_POSTGRES ?= false
+EXTERNAL_POSTGRES_HOST ?= 
+EXTERNAL_POSTGRES_PORT ?= 5432
+EXTERNAL_POSTGRES_USER ?= 
+EXTERNAL_POSTGRES_PASSWORD ?= 
+EXTERNAL_POSTGRES_DATABASE ?= 
+
+EXTERNAL_S3 ?= false
+EXTERNAL_S3_ENDPOINT ?= 
+EXTERNAL_S3_ACCESS_KEY ?= 
+EXTERNAL_S3_SECRET_KEY ?= 
+EXTERNAL_S3_REGION ?= us-east-1
+
 .NOTPARALLEL: $(DOCKERCOMPOSE)
 
 .PHONY: help
@@ -76,6 +90,31 @@ endif
 ifneq ($(TUNNEL_TOKEN),)
 	@echo "TUNNEL_TOKEN=$(TUNNEL_TOKEN)" >> .env
 endif
+	@echo "EXTERNAL_POSTGRES=$(EXTERNAL_POSTGRES)" >> .env
+	@echo "EXTERNAL_POSTGRES_PORT=$(EXTERNAL_POSTGRES_PORT)" >> .env
+ifneq ($(EXTERNAL_POSTGRES_HOST),)
+	@echo "EXTERNAL_POSTGRES_HOST=$(EXTERNAL_POSTGRES_HOST)" >> .env
+endif
+ifneq ($(EXTERNAL_POSTGRES_USER),)
+	@echo "EXTERNAL_POSTGRES_USER=$(EXTERNAL_POSTGRES_USER)" >> .env
+endif
+ifneq ($(EXTERNAL_POSTGRES_PASSWORD),)
+	@echo "EXTERNAL_POSTGRES_PASSWORD=$(EXTERNAL_POSTGRES_PASSWORD)" >> .env
+endif
+ifneq ($(EXTERNAL_POSTGRES_DATABASE),)
+	@echo "EXTERNAL_POSTGRES_DATABASE=$(EXTERNAL_POSTGRES_DATABASE)" >> .env
+endif
+	@echo "EXTERNAL_S3=$(EXTERNAL_S3)" >> .env
+	@echo "EXTERNAL_S3_REGION=$(EXTERNAL_S3_REGION)" >> .env
+ifneq ($(EXTERNAL_S3_ENDPOINT),)
+	@echo "EXTERNAL_S3_ENDPOINT=$(EXTERNAL_S3_ENDPOINT)" >> .env
+endif
+ifneq ($(EXTERNAL_S3_ACCESS_KEY),)
+	@echo "EXTERNAL_S3_ACCESS_KEY=$(EXTERNAL_S3_ACCESS_KEY)" >> .env
+endif
+ifneq ($(EXTERNAL_S3_SECRET_KEY),)
+	@echo "EXTERNAL_S3_SECRET_KEY=$(EXTERNAL_S3_SECRET_KEY)" >> .env
+endif
 	@$(MAKE) showenv
 
 .PHONY: wait
@@ -89,8 +128,29 @@ waitlog: ## Wait for log line
 
 .PHONY: up
 up: config ## Start all services
-	@docker compose up --build -d
+	@$(MAKE) _compose_up
 	@$(MAKE) wait SERVICE=api
+	@$(MAKE) showenv
+	@$(MAKE) showpass
+
+_compose_up:
+ifeq ($(EXTERNAL_POSTGRES),true)
+ifeq ($(EXTERNAL_S3),true)
+	@echo "Using external PostgreSQL and S3 services"
+	@docker compose up --build -d
+else
+	@echo "Using external PostgreSQL and internal S3 service"
+	@docker compose --profile internal-s3 up --build -d
+endif
+else
+ifeq ($(EXTERNAL_S3),true)
+	@echo "Using internal PostgreSQL and external S3 service"
+	@docker compose --profile internal-postgres up --build -d
+else
+	@echo "Using internal PostgreSQL and S3 services"
+	@docker compose --profile internal-postgres --profile internal-s3 up --build -d
+endif
+endif
 	@$(MAKE) showenv
 	@$(MAKE) showpass
 
