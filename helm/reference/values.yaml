@@ -1,0 +1,86 @@
+# Reference values.yaml from open-balena-helm repository
+# This file shows the original Kubernetes configuration structure
+# All functionality has been migrated to Docker Compose services
+
+global:
+  hostname: ""
+  email: "admin@openbalena.io"
+  password: "password"
+  production-mode: true
+
+  db:
+    server:
+    port: 5432
+    user: "docker"
+    password: "password"
+    name: "resin"
+
+  s3:
+    server:
+    registryBucket: "registry-data"
+    imageBucket: "image-data"
+    region: "us-east-1"
+  
+  redis:
+    server:
+    port: 6379
+    clusterMode: false
+
+# Services that have been migrated to Docker Compose:
+
+api:
+  replicas: 1
+  image:
+    repository: balena/open-balena-api
+    tag: "v35.0.5"
+
+ui:
+  replicas: 1
+  image:
+    repository: harmonidcaputo/open-balena-ui
+    tag: latest
+
+remote:
+  replicas: 1
+  image:
+    repository: harmonidcaputo/open-balena-remote
+    tag: latest
+
+postgrest:
+  replicas: 1
+  image:
+    repository: harmonidcaputo/open-balena-postgrest
+    tag: latest
+
+builder:
+  enabled: true
+  replicas: 1
+  image:
+    repository: harmonidcaputo/open-balena-builder
+    tag: "latest"
+
+delta:
+  enabled: true
+  replicas: 1
+  image:
+    repository: harmonidcaputo/open-balena-delta
+    tag: "latest"
+
+helper:
+  enabled: true
+  replicas: 1
+  image:
+    repository: harmonidcaputo/open-balena-helper
+    tag: "latest"
+
+# Ingress configuration (now handled by Traefik)
+ingress:
+  ingressClassName: openbalena-haproxy
+  annotations: {}
+
+# HAProxy configuration (replaced by Traefik)
+haproxy:
+  controller:
+    service:
+      httpPorts: []
+    ingressClass: "openbalena-haproxy"
