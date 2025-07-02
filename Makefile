@@ -115,6 +115,15 @@ endif
 ifneq ($(EXTERNAL_S3_SECRET_KEY),)
 	@echo "EXTERNAL_S3_SECRET_KEY=$(EXTERNAL_S3_SECRET_KEY)" >> .env
 endif
+ifneq ($(BANNER_IMAGE),)
+	@echo "BANNER_IMAGE=$(BANNER_IMAGE)" >> .env
+endif
+ifneq ($(REMOTE_SENTRY_DSN),)
+	@echo "REMOTE_SENTRY_DSN=$(REMOTE_SENTRY_DSN)" >> .env
+endif
+ifneq ($(OPENBALENA_API_VERSION),)
+	@echo "OPENBALENA_API_VERSION=$(OPENBALENA_API_VERSION)" >> .env
+endif
 	@$(MAKE) showenv
 
 .PHONY: wait

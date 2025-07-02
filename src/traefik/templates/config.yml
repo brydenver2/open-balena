@@ -106,6 +106,97 @@ http:
         - websecure
       priority: 200
 
+    # UI/Admin service router - Web dashboard
+    ui-router:
+      rule: "HostRegexp(`{subdomain:admin\\..*}`) || HostRegexp(`{subdomain:ui\\..*}`)"
+      service: ui-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 110
+
+    # PostgREST service router - REST API for PostgreSQL
+    postgrest-router:
+      rule: "HostRegexp(`{subdomain:postgrest\\..*}`)"
+      service: postgrest-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 105
+
+    # Remote service router - Remote device access
+    remote-router:
+      rule: "HostRegexp(`{subdomain:remote\\..*}`)"
+      service: remote-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 103
+
+    # Builder service router - Container build functionality
+    builder-router:
+      rule: "HostRegexp(`{subdomain:builder\\..*}`)"
+      service: builder-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 102
+
+    # Delta service router - Delta update processing
+    delta-router:
+      rule: "HostRegexp(`{subdomain:delta\\..*}`)"
+      service: delta-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 101
+
+    # Helper service router - Routes helper requests to API
+    helper-download-router:
+      rule: "HostRegexp(`api\\..*`) && PathPrefix(`/download`)"
+      service: helper-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 150
+
+    # Helper service router - Routes supervisor release requests
+    helper-supervisor-router:
+      rule: "HostRegexp(`api\\..*`) && PathPrefix(`/v6/supervisor_release`)"
+      service: helper-service
+      entryPoints:
+        - web
+        - websecure
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      tls: true
+      priority: 149
+
     # Default PDU router (equivalent to HAProxy host-pdu-default)
     pdu-router:
       rule: "HostRegexp(`{subdomain:.*\\.devices\\..*}`) || HostRegexp(`{subdomain:.*\\.balena-.*-devices\\..*}`)"
@@ -189,6 +280,66 @@ http:
       loadBalancer:
         servers:
           - url: "http://balena-ca:8889"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # UI backend service - Web dashboard
+    ui-service:
+      loadBalancer:
+        servers:
+          - url: "http://ui:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # PostgREST backend service - REST API for PostgreSQL
+    postgrest-service:
+      loadBalancer:
+        servers:
+          - url: "http://postgrest:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # Remote backend service - Remote device access
+    remote-service:
+      loadBalancer:
+        servers:
+          - url: "http://remote:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # Builder backend service - Container build functionality
+    builder-service:
+      loadBalancer:
+        servers:
+          - url: "http://builder:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # Delta backend service - Delta update processing
+    delta-service:
+      loadBalancer:
+        servers:
+          - url: "http://delta:80"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+
+    # Helper backend service - Utility functions
+    helper-service:
+      loadBalancer:
+        servers:
+          - url: "http://helper:80"
         healthCheck:
           path: "/"
           interval: "30s"
