@@ -86,7 +86,41 @@ ifneq ($(OPENBALENA_API_VERSION),)
 	@echo "OPENBALENA_API_VERSION=$(OPENBALENA_API_VERSION)" >> .env
 endif
 	@$(MAKE) showenv
-
+<<<<<<< copilot/fix-354910e2-bb07-47c7-a0ce-6e20c084bafc
+	@echo "EXTERNAL_POSTGRES=$(EXTERNAL_POSTGRES)" >> .env
+	@echo "EXTERNAL_POSTGRES_PORT=$(EXTERNAL_POSTGRES_PORT)" >> .env
+ifneq ($(EXTERNAL_POSTGRES_HOST),)
+	@echo "EXTERNAL_POSTGRES_HOST=$(EXTERNAL_POSTGRES_HOST)" >> .env
+endif
+ifneq ($(EXTERNAL_POSTGRES_USER),)
+	@echo "EXTERNAL_POSTGRES_USER=$(EXTERNAL_POSTGRES_USER)" >> .env
+endif
+ifneq ($(EXTERNAL_POSTGRES_PASSWORD),)
+	@echo "EXTERNAL_POSTGRES_PASSWORD=$(EXTERNAL_POSTGRES_PASSWORD)" >> .env
+endif
+ifneq ($(EXTERNAL_POSTGRES_DATABASE),)
+	@echo "EXTERNAL_POSTGRES_DATABASE=$(EXTERNAL_POSTGRES_DATABASE)" >> .env
+endif
+	@echo "EXTERNAL_S3=$(EXTERNAL_S3)" >> .env
+	@echo "EXTERNAL_S3_REGION=$(EXTERNAL_S3_REGION)" >> .env
+ifneq ($(EXTERNAL_S3_ENDPOINT),)
+	@echo "EXTERNAL_S3_ENDPOINT=$(EXTERNAL_S3_ENDPOINT)" >> .env
+endif
+ifneq ($(EXTERNAL_S3_ACCESS_KEY),)
+	@echo "EXTERNAL_S3_ACCESS_KEY=$(EXTERNAL_S3_ACCESS_KEY)" >> .env
+endif
+ifneq ($(EXTERNAL_S3_SECRET_KEY),)
+	@echo "EXTERNAL_S3_SECRET_KEY=$(EXTERNAL_S3_SECRET_KEY)" >> .env
+=======
+ifneq ($(BANNER_IMAGE),)
+	@echo "BANNER_IMAGE=$(BANNER_IMAGE)" >> .env
+endif
+ifneq ($(REMOTE_SENTRY_DSN),)
+	@echo "REMOTE_SENTRY_DSN=$(REMOTE_SENTRY_DSN)" >> .env
+endif
+ifneq ($(OPENBALENA_API_VERSION),)
+	@echo "OPENBALENA_API_VERSION=$(OPENBALENA_API_VERSION)" >> .env
+>>>>>>> master
 .PHONY: wait
 wait: ## Wait for service
 	@until [[ $$(docker compose ps $(SERVICE) --format json | jq -r '.Health') =~ ^healthy$$ ]]; do printf '.'; sleep 3; done
