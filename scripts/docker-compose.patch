@@ -1,0 +1,26 @@
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ ... @@
+ services:
+   api:
+     ...
+     environment:
+-      COOKIE_SESSION_SECRET: ${COOKIE_SESSION_SECRET:-}
+-      JSON_WEB_TOKEN_SECRET: ${JSON_WEB_TOKEN_SECRET:-}
+-      TOKEN_AUTH_BUILDER_TOKEN: ${TOKEN_AUTH_BUILDER_TOKEN:-}
++      # Token secrets are only injected if TOKENS_MODE is 'user'
++      COOKIE_SESSION_SECRET: ${TOKENS_MODE:-auto} == 'user' ? ${COOKIE_SESSION_SECRET} : ""
++      JSON_WEB_TOKEN_SECRET: ${TOKENS_MODE:-auto} == 'user' ? ${JSON_WEB_TOKEN_SECRET} : ""
++      TOKEN_AUTH_BUILDER_TOKEN: ${TOKENS_MODE:-auto} == 'user' ? ${TOKEN_AUTH_BUILDER_TOKEN} : ""
+@@ ... @@
+   registry:
+     ...
+     environment:
+-      REGISTRY2_SECRETKEY: ${REGISTRY2_SECRETKEY:-}
+-      REGISTRY2_S3_KEY: ${REGISTRY2_S3_KEY:-}
+-      REGISTRY2_S3_SECRET: ${REGISTRY2_S3_SECRET:-}
++      # Token secrets are only injected if TOKENS_MODE is 'user'
++      REGISTRY2_SECRETKEY: ${TOKENS_MODE:-auto} == 'user' ? ${REGISTRY2_SECRETKEY} : ""
++      REGISTRY2_S3_KEY: ${TOKENS_MODE:-auto} == 'user' ? ${REGISTRY2_S3_KEY} : ""
++      REGISTRY2_S3_SECRET: ${TOKENS_MODE:-auto} == 'user' ? ${REGISTRY2_S3_SECRET} : ""
+@@ ... @@
