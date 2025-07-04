@@ -41,12 +41,14 @@ Usage: $0 COMMAND [OPTIONS]
 Commands:
   help      Show this help message
   lint      Lint shell scripts using shellcheck
-  verify    Ping the public API endpoint
+  verify    Ping the public API endpoint and verify certificates
   config    Regenerate .env file with current environment/context
   up        Start all services
   down      Stop all services
   restart   Restart all services
   destroy   Stop and remove all containers and volumes
+  auto-pki  Start all services with automatic PKI (LetsEncrypt/ACME)
+  custom-pki Start all services with custom PKI certificates
   logs      Show logs for a service (usage: $0 logs SERVICE_NAME)
   status    Show status of all services
   showenv   Show current .env configuration
@@ -62,8 +64,10 @@ Environment Variables:
 Examples:
   $0 config                 # Generate .env configuration
   $0 up                     # Start all services
+  $0 auto-pki               # Start with automatic LetsEncrypt certificates
+  $0 custom-pki             # Start with custom certificates
   $0 logs api               # Show API service logs
-  $0 verify                 # Check API endpoint
+  $0 verify                 # Check API endpoint and certificates
   $0 down                   # Stop all services
 
 EOF
@@ -106,10 +110,13 @@ lint_scripts() {
     fi
 }
 
-# Verify API endpoint
+# Verify API endpoint and certificate
 verify_api() {
     check_dns_tld
-    echo "==> Pinging API endpoint: https://api.${DNS_TLD}/ping"
+    echo "==> Verifying OpenBalena deployment..."
+    
+    # Test API endpoint
+    echo "Testing API endpoint: https://api.${DNS_TLD}/ping"
     if curl --fail --retry 3 --connect-timeout 10 --max-time 30 "https://api.${DNS_TLD}/ping"; then
         echo
         echo "✓ API endpoint is responding."
@@ -118,6 +125,26 @@ verify_api() {
         echo "✗ API endpoint failed to respond."
         exit 1
     fi
+    
+    # Test certificate validity
+    echo "==> Verifying SSL certificate..."
+    if curl --fail --silent --head --connect-timeout 10 --max-time 30 "https://api.${DNS_TLD}" > /dev/null; then
+        echo "✓ SSL certificate is valid."
+    else
+        echo "⚠ SSL certificate verification failed - this may be expected with self-signed certificates."
+    fi
+    
+    # Test certificate manager if running
+    if docker compose ps cert-manager --format json 2>/dev/null | jq -r '.State' | grep -q "running"; then
+        echo "==> Checking certificate manager status..."
+        if docker compose exec cert-manager ls -la /certs/export/chain.pem 2>/dev/null; then
+            echo "✓ Certificate manager has generated certificates."
+        else
+            echo "⚠ Certificate manager is running but no certificates found."
+        fi
+    fi
+    
+    echo "==> Verification completed."
 }
 
 # Generate configuration using existing script
@@ -129,6 +156,69 @@ generate_config() {
         echo "Error: scripts/open-balena-env.sh not found."
         exit 1
     fi
+}
+
+# Start services with auto-PKI/LetsEncrypt
+start_auto_pki() {
+    echo "==> Starting OpenBalena with auto-PKI (LetsEncrypt/ACME)..."
+    
+    # Ensure .env exists
+    if [[ ! -f .env ]]; then
+        echo "Error: .env file not found. Run '$0 config' first."
+        exit 1
+    fi
+    
+    # Check for required ACME configuration
+    if [[ -z "${ACME_EMAIL:-}" ]]; then
+        echo "Error: ACME_EMAIL is required for auto-PKI. Please run '$0 config' and enable ACME."
+        exit 1
+    fi
+    
+    # Remove existing certificate to force renewal
+    echo "Removing existing certificate to force renewal..."
+    docker compose exec cert-manager rm -f /certs/export/chain.pem 2>/dev/null || true
+    
+    # Start all services
+    start_services
+    
+    # Wait for cert-manager to generate certificates
+    echo "==> Waiting for cert-manager to generate certificates..."
+    wait_for_log "cert-manager" "/certs/export/chain.pem Certificate will not expire in [0-9] days"
+    wait_for_log "cert-manager" "subject=CN = ${DNS_TLD}"
+    wait_for_log "cert-manager" "issuer=C = US, O = Let's Encrypt, CN = .*"
+    
+    # Wait for Traefik to be healthy
+    echo "==> Waiting for Traefik reverse proxy..."
+    wait_for_service "traefik"
+    
+    echo "==> Auto-PKI setup completed successfully!"
+    show_env
+    show_password
+}
+
+# Start services with custom PKI certificates
+start_custom_pki() {
+    echo "==> Starting OpenBalena with custom PKI certificates..."
+    
+    # Ensure .env exists
+    if [[ ! -f .env ]]; then
+        echo "Error: .env file not found. Run '$0 config' first."
+        exit 1
+    fi
+    
+    # Check for custom certificate configuration
+    if [[ -z "${HAPROXY_CRT:-}" && -z "${TRAEFIK_CRT:-}" ]]; then
+        echo "Warning: No custom certificate path specified."
+        echo "Set HAPROXY_CRT or TRAEFIK_CRT environment variable to use custom certificates."
+        echo "Proceeding with standard startup..."
+    fi
+    
+    # Start services normally - custom certificates should be mounted via volumes
+    start_services
+    
+    echo "==> Custom PKI setup completed!"
+    show_env
+    show_password
 }
 
 # Start services with docker compose
@@ -215,6 +305,30 @@ wait_for_service() {
     return 1
 }
 
+# Wait for specific log message from a service
+wait_for_log() {
+    local service="$1"
+    local log_pattern="$2"
+    local timeout=300  # 5 minutes timeout
+    local elapsed=0
+    
+    echo -n "Waiting for $service log: $log_pattern"
+    while [[ $elapsed -lt $timeout ]]; do
+        if docker compose logs "$service" | grep -Eq "$log_pattern"; then
+            echo
+            echo "✓ Found expected log message in $service"
+            return 0
+        fi
+        echo -n "."
+        sleep 3
+        elapsed=$((elapsed + 3))
+    done
+    
+    echo
+    echo "✗ Timeout waiting for log message in $service"
+    return 1
+}
+
 # Show logs for a service
 show_logs() {
     local service="$1"
@@ -275,6 +389,12 @@ main() {
             ;;
         up)
             start_services
+            ;;
+        auto-pki)
+            start_auto_pki
+            ;;
+        custom-pki)
+            start_custom_pki
             ;;
         down)
             stop_services
