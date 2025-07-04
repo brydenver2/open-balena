@@ -325,17 +325,21 @@ services:
     depends_on:
       - api
     environment:
+      # JWT secret for authentication
       OPEN_BALENA_JWT_SECRET: ${JSON_WEB_TOKEN_SECRET}
+      # S3 configuration for storage access
       OPEN_BALENA_S3_URL: https://s3.${DNS_TLD}
       OPEN_BALENA_S3_ACCESS_KEY: ${REGISTRY2_S3_KEY}
       OPEN_BALENA_S3_SECRET_KEY: ${REGISTRY2_S3_SECRET}
       OPEN_BALENA_S3_REGISTRY_BUCKET: registry-data
+      # Service URLs for internal communication
       REACT_APP_OPEN_BALENA_UI_URL: https://admin.${DNS_TLD}
       REACT_APP_OPEN_BALENA_POSTGREST_URL: https://postgrest.${DNS_TLD}
       REACT_APP_OPEN_BALENA_REMOTE_URL: https://remote.${DNS_TLD}
       REACT_APP_OPEN_BALENA_API_URL: https://api.${DNS_TLD}
+      # UI customization
       REACT_APP_OPEN_BALENA_API_VERSION: ${OPENBALENA_API_VERSION:-v37.3.4}
-      REACT_APP_BANNER_IMAGE: ${BANNER_IMAGE:-}
+      REACT_APP_BANNER_IMAGE: ${REACT_APP_BANNER_IMAGE:-./banner_illustration.svg}
       PORT: 80
 
   # PostgREST - REST API for PostgreSQL
@@ -348,10 +352,14 @@ services:
     ]
     image: harmonidcaputo/open-balena-postgrest:latest
     environment:
-      PGRST_DB_URI: postgres://docker:docker@db:5432/resin
-      PGRST_DB_SCHEMA: public
-      PGRST_DB_ANON_ROLE: docker
-      PGRST_SERVER_PORT: 80
+      # Database connection URI (uses external DB if EXTERNAL_POSTGRES=true)
+      PGRST_DB_URI: ${PGRST_DB_URI:-postgres://docker:docker@db:5432/resin}
+      # Database schema to expose via REST API
+      PGRST_DB_SCHEMA: ${PGRST_DB_SCHEMA:-public}
+      # Anonymous role for database access
+      PGRST_DB_ANON_ROLE: ${PGRST_DB_ANON_ROLE:-docker}
+      # Server port
+      PGRST_SERVER_PORT: ${PGRST_SERVER_PORT:-80}
 
   # Remote - Remote device access service
   remote:
@@ -365,9 +373,13 @@ services:
     depends_on:
       - api
     environment:
+      # Session cookie secret
       COOKIE_SECRET: ${COOKIE_SESSION_SECRET}
+      # Domain configuration
       BALENA_TLD: ${DNS_TLD}
-      API_HOST: api.${DNS_TLD}
+      # API hostname for internal communication
+      API_HOST: ${API_HOST:-api.${DNS_TLD}}
+      # Optional Sentry DSN for error tracking
       SENTRY_DSN: ${REMOTE_SENTRY_DSN:-}
     ports:
       # Remote access ports for device connectivity
@@ -394,13 +406,19 @@ services:
     depends_on:
       - api
     environment:
+      # Domain configuration
       BALENA_TLD: ${DNS_TLD}
-      API_HOST: api.${DNS_TLD}
-      DELTA_HOST: delta.${DNS_TLD}
+      # Service hostnames for internal communication
+      API_HOST: ${API_HOST:-api.${DNS_TLD}}
+      DELTA_HOST: ${DELTA_HOST:-delta.${DNS_TLD}}
+      # Authentication token
       TOKEN_AUTH_BUILDER_TOKEN: ${TOKEN_AUTH_BUILDER_TOKEN}
+      # Docker configuration
       DOCKER_BUILDKIT: '0'
     volumes:
+      # Persistent storage for build artifacts and cache
       - builder-storage:/storage
+      # Docker socket for container builds
       - /var/run/docker.sock:/var/run/docker.sock
     privileged: true
 
@@ -416,11 +434,15 @@ services:
     depends_on:
       - api
     environment:
+      # Domain configuration
       BALENA_TLD: ${DNS_TLD}
-      API_HOST: api.${DNS_TLD}
-      BUILDER_HOST: builder.${DNS_TLD}
+      # Service hostnames for internal communication
+      API_HOST: ${API_HOST:-api.${DNS_TLD}}
+      BUILDER_HOST: ${BUILDER_HOST:-builder.${DNS_TLD}}
+      # Authentication token
       TOKEN_AUTH_BUILDER_TOKEN: ${TOKEN_AUTH_BUILDER_TOKEN}
     volumes:
+      # Persistent storage for delta processing workspace
       - delta-storage:/storage
 
   # Helper - Utility functions service
@@ -435,10 +457,13 @@ services:
     depends_on:
       - api
     environment:
+      # Domain configuration
       BALENA_TLD: ${DNS_TLD}
-      API_HOST: api.${DNS_TLD}
-      S3_HOST: s3.${DNS_TLD}
+      # Service hostnames for internal communication
+      API_HOST: ${API_HOST:-api.${DNS_TLD}}
+      S3_HOST: ${S3_HOST:-s3.${DNS_TLD}}
     volumes:
+      # Persistent storage for downloads and supervisor releases
       - helper-storage:/storage
 
 

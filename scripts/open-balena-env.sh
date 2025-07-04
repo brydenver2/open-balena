@@ -94,6 +94,67 @@ if [[ "$use_ca" =~ ^[Yy]$ ]]; then
   ask_var NODE_EXTRA_CA_CERTS "Path to CA certificate (e.g. /path/to/ca.pem)"
 fi
 
+# UI Service Configuration
+echo "# UI Service Configuration" >> "$ENV_FILE"
+read -rp "Enter banner image URL for UI (default: ./banner_illustration.svg): " banner_image
+REACT_APP_BANNER_IMAGE="${banner_image:-./banner_illustration.svg}"
+echo "REACT_APP_BANNER_IMAGE=\"$REACT_APP_BANNER_IMAGE\"" >> "$ENV_FILE"
+
+read -rp "Enter OpenBalena API version (default: v37.3.4): " api_version
+OPENBALENA_API_VERSION="${api_version:-v37.3.4}"
+echo "OPENBALENA_API_VERSION=\"$OPENBALENA_API_VERSION\"" >> "$ENV_FILE"
+
+# Remote Service Configuration
+echo "# Remote Service Configuration" >> "$ENV_FILE"
+read -rp "Enter Sentry DSN for remote service (optional): " remote_sentry
+REMOTE_SENTRY_DSN="${remote_sentry:-}"
+echo "REMOTE_SENTRY_DSN=\"$REMOTE_SENTRY_DSN\"" >> "$ENV_FILE"
+
+# PostgREST Service Configuration
+if [[ "$EXTERNAL_POSTGRES" = "true" ]]; then
+  PGRST_DB_URI="postgres://${EXTERNAL_POSTGRES_USER}:${EXTERNAL_POSTGRES_PASSWORD}@${EXTERNAL_POSTGRES_HOST}:${EXTERNAL_POSTGRES_PORT}/${EXTERNAL_POSTGRES_DATABASE}"
+else
+  PGRST_DB_URI="postgres://docker:docker@db:5432/resin"
+fi
+PGRST_DB_SCHEMA="public"
+PGRST_DB_ANON_ROLE="docker"
+PGRST_SERVER_PORT="80"
+{
+  echo "# PostgREST Service Configuration"
+  echo "PGRST_DB_URI=\"$PGRST_DB_URI\""
+  echo "PGRST_DB_SCHEMA=\"$PGRST_DB_SCHEMA\""
+  echo "PGRST_DB_ANON_ROLE=\"$PGRST_DB_ANON_ROLE\""
+  echo "PGRST_SERVER_PORT=\"$PGRST_SERVER_PORT\""
+} >> "$ENV_FILE"
+
+# Service URLs (automatically configured based on DNS_TLD)
+REACT_APP_OPEN_BALENA_UI_URL="https://admin.${DNS_TLD}"
+REACT_APP_OPEN_BALENA_POSTGREST_URL="https://postgrest.${DNS_TLD}"
+REACT_APP_OPEN_BALENA_REMOTE_URL="https://remote.${DNS_TLD}"
+REACT_APP_OPEN_BALENA_API_URL="https://api.${DNS_TLD}"
+{
+  echo "# Service URLs (automatically configured based on DNS_TLD)"
+  echo "# These are used internally by services for communication"
+  echo "REACT_APP_OPEN_BALENA_UI_URL=\"$REACT_APP_OPEN_BALENA_UI_URL\""
+  echo "REACT_APP_OPEN_BALENA_POSTGREST_URL=\"$REACT_APP_OPEN_BALENA_POSTGREST_URL\""
+  echo "REACT_APP_OPEN_BALENA_REMOTE_URL=\"$REACT_APP_OPEN_BALENA_REMOTE_URL\""
+  echo "REACT_APP_OPEN_BALENA_API_URL=\"$REACT_APP_OPEN_BALENA_API_URL\""
+} >> "$ENV_FILE"
+
+# Service Host Configuration
+API_HOST="api.${DNS_TLD}"
+DELTA_HOST="delta.${DNS_TLD}"
+BUILDER_HOST="builder.${DNS_TLD}"
+S3_HOST="s3.${DNS_TLD}"
+{
+  echo "# Service Host Configuration"
+  echo "# These are used for internal service communication as hostnames"
+  echo "API_HOST=\"$API_HOST\""
+  echo "DELTA_HOST=\"$DELTA_HOST\""
+  echo "BUILDER_HOST=\"$BUILDER_HOST\""
+  echo "S3_HOST=\"$S3_HOST\""
+} >> "$ENV_FILE"
+
 # -- TOKENS SECTION --
 TOKEN_VARS=(
   COOKIE_SESSION_SECRET
@@ -132,6 +193,12 @@ export EXTERNAL_POSTGRES EXTERNAL_S3
 [ -n "$CLOUDFLARE_API_TOKEN" ] && export CLOUDFLARE_API_TOKEN
 [ -n "$GANDI_API_TOKEN" ] && export GANDI_API_TOKEN
 [ -n "$NODE_EXTRA_CA_CERTS" ] && export NODE_EXTRA_CA_CERTS
+
+# Export enhanced service configuration variables
+export REACT_APP_BANNER_IMAGE OPENBALENA_API_VERSION REMOTE_SENTRY_DSN
+export PGRST_DB_URI PGRST_DB_SCHEMA PGRST_DB_ANON_ROLE PGRST_SERVER_PORT
+export REACT_APP_OPEN_BALENA_UI_URL REACT_APP_OPEN_BALENA_POSTGREST_URL REACT_APP_OPEN_BALENA_REMOTE_URL REACT_APP_OPEN_BALENA_API_URL
+export API_HOST DELTA_HOST BUILDER_HOST S3_HOST
 
 echo
 echo "Environment variables exported to your shell."
