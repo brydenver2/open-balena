@@ -113,6 +113,10 @@ services:
       WEBRESOURCES_S3_BUCKET: web-resources
       WEBRESOURCES_S3_HOST: ${EXTERNAL_S3_ENDPOINT:-s3}
       WEBRESOURCES_S3_REGION: ${EXTERNAL_S3_REGION:-us-east-1}
+    labels:
+      # Enable Traefik discovery for API service
+      traefik.enable: 'true'
+      traefik.http.services.api.loadbalancer.server.port: '80'
 
   # https://github.com/balena-io/open-balena-registry
   registry:
@@ -139,6 +143,10 @@ services:
       REGISTRY2_S3_SECRET: ${EXTERNAL_S3_SECRET_KEY:-}
       REGISTRY2_STORAGEPATH: /data
       TOKENS_CONFIG: REGISTRY2_SECRETKEY:hex,REGISTRY2_S3_KEY:hex,REGISTRY2_S3_SECRET:hex
+    labels:
+      # Enable Traefik discovery for Registry service
+      traefik.enable: 'true'
+      traefik.http.services.registry.loadbalancer.server.port: '80'
 
   # https://github.com/balena-io/open-balena-vpn
   vpn:
@@ -194,6 +202,10 @@ services:
       TOKENS_CONFIG: REGISTRY2_S3_KEY:hex,REGISTRY2_S3_SECRET:hex,S3_MINIO_ACCESS_KEY:REGISTRY2_S3_KEY,S3_MINIO_SECRET_KEY:REGISTRY2_S3_SECRET,WEBRESOURCES_S3_ACCESS_KEY:REGISTRY2_S3_KEY,WEBRESOURCES_S3_SECRET_KEY:REGISTRY2_S3_SECRET
     profiles:
       - internal-s3
+    labels:
+      # Enable Traefik discovery for S3 service
+      traefik.enable: 'true'
+      traefik.http.services.s3.loadbalancer.server.port: '80'
 
   # https://hub.docker.com/_/redis
   redis:
@@ -233,6 +245,9 @@ services:
       LOGLEVEL: info
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Mount Traefik configuration files for helper service routing
+      - ./src/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./src/traefik/templates/:/etc/traefik/dynamic/:ro
 
   # Error pages service for Traefik
   error-pages:
@@ -298,6 +313,9 @@ services:
       # future expansion
       io.balena.features.balena-api: 1
       io.balena.features.supervisor-api: 1
+      # Enable Traefik discovery for CA service
+      traefik.enable: 'true'
+      traefik.http.services.ca.loadbalancer.server.port: '8888'
 
   # Cloudflare Tunnel service for secure external access
   cloudflared:
@@ -341,6 +359,10 @@ services:
       REACT_APP_OPEN_BALENA_API_VERSION: ${OPENBALENA_API_VERSION:-v37.3.4}
       REACT_APP_BANNER_IMAGE: ${REACT_APP_BANNER_IMAGE:-./banner_illustration.svg}
       PORT: 80
+    labels:
+      # Enable Traefik discovery for UI service
+      traefik.enable: 'true'
+      traefik.http.services.ui.loadbalancer.server.port: '80'
 
   # PostgREST - REST API for PostgreSQL
   postgrest:
@@ -360,6 +382,10 @@ services:
       PGRST_JWT_SECRET: ${JSON_WEB_TOKEN_SECRET}
       # PostgreSQL role for database access
       OPENBALENA_DB_ROLE: ${OPENBALENA_DB_ROLE:-docker}
+    labels:
+      # Enable Traefik discovery for PostgREST service
+      traefik.enable: 'true'
+      traefik.http.services.postgrest.loadbalancer.server.port: '80'
 
   # Remote - Remote device access service
   remote:
@@ -387,6 +413,10 @@ services:
       - '10007:10007/tcp'
       - '10008:10008/tcp'
       - '10009:10009/tcp'
+    labels:
+      # Enable Traefik discovery for Remote service
+      traefik.enable: 'true'
+      traefik.http.services.remote.loadbalancer.server.port: '80'
 
   # Builder - Container build functionality
   builder:
@@ -418,6 +448,10 @@ services:
       # Docker socket for container builds
       - /var/run/docker.sock:/var/run/docker.sock
     privileged: true
+    labels:
+      # Enable Traefik discovery for Builder service
+      traefik.enable: 'true'
+      traefik.http.services.builder.loadbalancer.server.port: '80'
 
   # Delta - Delta update processing service
   delta:
@@ -452,6 +486,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # Certificate volume for authentication (API public key)
       - certs-data:/certs
+    labels:
+      # Enable Traefik discovery for Delta service
+      traefik.enable: 'true'
+      traefik.http.services.delta.loadbalancer.server.port: '80'
 
   # Helper - Utility functions service
   helper:
@@ -477,6 +515,11 @@ services:
     volumes:
       # Persistent storage for downloads and supervisor releases
       - helper-storage:/storage
+    labels:
+      # Enable Traefik discovery for helper service routing
+      traefik.enable: 'true'
+      # Helper service routes handled by file configuration
+      traefik.http.services.helper.loadbalancer.server.port: '80'
 
 
   # --- End of runtime services ---
