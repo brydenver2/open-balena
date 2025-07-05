@@ -94,6 +94,96 @@ if [[ "$use_ca" =~ ^[Yy]$ ]]; then
   ask_var NODE_EXTRA_CA_CERTS "Path to CA certificate (e.g. /path/to/ca.pem)"
 fi
 
+# UI Service Configuration
+echo "# UI Service Configuration" >> "$ENV_FILE"
+read -rp "Enter banner image URL for UI (default: ./banner_illustration.svg): " banner_image
+REACT_APP_BANNER_IMAGE="${banner_image:-./banner_illustration.svg}"
+echo "REACT_APP_BANNER_IMAGE=\"$REACT_APP_BANNER_IMAGE\"" >> "$ENV_FILE"
+
+read -rp "Enter OpenBalena API version (default: v37.3.4): " api_version
+OPENBALENA_API_VERSION="${api_version:-v37.3.4}"
+echo "OPENBALENA_API_VERSION=\"$OPENBALENA_API_VERSION\"" >> "$ENV_FILE"
+
+# PostgREST Service Configuration
+if [[ "$EXTERNAL_POSTGRES" = "true" ]]; then
+  PGRST_DB_URI="postgres://${EXTERNAL_POSTGRES_USER}:${EXTERNAL_POSTGRES_PASSWORD}@${EXTERNAL_POSTGRES_HOST}:${EXTERNAL_POSTGRES_PORT}/${EXTERNAL_POSTGRES_DATABASE}"
+else
+  PGRST_DB_URI="postgres://docker:docker@db:5432/resin"
+fi
+PGRST_DB_SCHEMA="public"
+OPENBALENA_DB_ROLE="docker"
+{
+  echo "# PostgREST Service Configuration"
+  echo "PGRST_DB_URI=\"$PGRST_DB_URI\""
+  echo "PGRST_DB_SCHEMA=\"$PGRST_DB_SCHEMA\""
+  echo "OPENBALENA_DB_ROLE=\"$OPENBALENA_DB_ROLE\""
+} >> "$ENV_FILE"
+
+# Builder Service Configuration
+echo "# Builder Service Configuration" >> "$ENV_FILE"
+read -rp "Enter AMD64 Docker host for builder (format: tcp://host:2375, optional): " docker_host_amd64
+DOCKER_HOST_AMD64="${docker_host_amd64:-}"
+echo "DOCKER_HOST_AMD64=\"$DOCKER_HOST_AMD64\"" >> "$ENV_FILE"
+
+read -rp "Enter ARM64 Docker host for builder (format: tcp://host:2375, optional): " docker_host_arm64
+DOCKER_HOST_ARM64="${docker_host_arm64:-}"
+echo "DOCKER_HOST_ARM64=\"$DOCKER_HOST_ARM64\"" >> "$ENV_FILE"
+
+# Helper Service Configuration
+echo "# Helper Service Configuration" >> "$ENV_FILE"
+read -rp "Enter image storage bucket name (default: resin-production-img-cloudformation): " img_bucket
+IMAGE_STORAGE_BUCKET="${img_bucket:-resin-production-img-cloudformation}"
+echo "IMAGE_STORAGE_BUCKET=\"$IMAGE_STORAGE_BUCKET\"" >> "$ENV_FILE"
+
+read -rp "Enter image storage prefix (default: images): " img_prefix
+IMAGE_STORAGE_PREFIX="${img_prefix:-images}"
+echo "IMAGE_STORAGE_PREFIX=\"$IMAGE_STORAGE_PREFIX\"" >> "$ENV_FILE"
+
+# Set IMAGE_STORAGE_ENDPOINT based on external S3 configuration
+if [[ "$EXTERNAL_S3" = "true" ]]; then
+  IMAGE_STORAGE_ENDPOINT="$EXTERNAL_S3_ENDPOINT"
+  IMAGE_STORAGE_ACCESS_KEY="$EXTERNAL_S3_ACCESS_KEY"
+  IMAGE_STORAGE_SECRET_KEY="$EXTERNAL_S3_SECRET_KEY"
+else
+  IMAGE_STORAGE_ENDPOINT="s3.${DNS_TLD}"
+  IMAGE_STORAGE_ACCESS_KEY="$REGISTRY2_S3_KEY"
+  IMAGE_STORAGE_SECRET_KEY="$REGISTRY2_S3_SECRET"
+fi
+{
+  echo "IMAGE_STORAGE_ENDPOINT=\"$IMAGE_STORAGE_ENDPOINT\""
+  echo "IMAGE_STORAGE_ACCESS_KEY=\"$IMAGE_STORAGE_ACCESS_KEY\""
+  echo "IMAGE_STORAGE_SECRET_KEY=\"$IMAGE_STORAGE_SECRET_KEY\""
+  echo "IMAGE_STORAGE_FORCE_PATH_STYLE=\"true\""
+} >> "$ENV_FILE"
+
+# Service URLs (automatically configured based on DNS_TLD)
+REACT_APP_OPEN_BALENA_UI_URL="https://admin.${DNS_TLD}"
+REACT_APP_OPEN_BALENA_POSTGREST_URL="https://postgrest.${DNS_TLD}"
+REACT_APP_OPEN_BALENA_REMOTE_URL="https://remote.${DNS_TLD}"
+REACT_APP_OPEN_BALENA_API_URL="https://api.${DNS_TLD}"
+{
+  echo "# Service URLs (automatically configured based on DNS_TLD)"
+  echo "# These are used internally by services for communication"
+  echo "REACT_APP_OPEN_BALENA_UI_URL=\"$REACT_APP_OPEN_BALENA_UI_URL\""
+  echo "REACT_APP_OPEN_BALENA_POSTGREST_URL=\"$REACT_APP_OPEN_BALENA_POSTGREST_URL\""
+  echo "REACT_APP_OPEN_BALENA_REMOTE_URL=\"$REACT_APP_OPEN_BALENA_REMOTE_URL\""
+  echo "REACT_APP_OPEN_BALENA_API_URL=\"$REACT_APP_OPEN_BALENA_API_URL\""
+} >> "$ENV_FILE"
+
+# Service Host Configuration
+API_HOST="api.${DNS_TLD}"
+DELTA_HOST="delta.${DNS_TLD}"
+BUILDER_HOST="builder.${DNS_TLD}"
+REGISTRY_HOST="registry.${DNS_TLD}"
+{
+  echo "# Service Host Configuration"
+  echo "# These are used for internal service communication as hostnames"
+  echo "API_HOST=\"$API_HOST\""
+  echo "DELTA_HOST=\"$DELTA_HOST\""
+  echo "BUILDER_HOST=\"$BUILDER_HOST\""
+  echo "REGISTRY_HOST=\"$REGISTRY_HOST\""
+} >> "$ENV_FILE"
+
 # -- TOKENS SECTION --
 TOKEN_VARS=(
   COOKIE_SESSION_SECRET
@@ -132,6 +222,14 @@ export EXTERNAL_POSTGRES EXTERNAL_S3
 [ -n "$CLOUDFLARE_API_TOKEN" ] && export CLOUDFLARE_API_TOKEN
 [ -n "$GANDI_API_TOKEN" ] && export GANDI_API_TOKEN
 [ -n "$NODE_EXTRA_CA_CERTS" ] && export NODE_EXTRA_CA_CERTS
+
+# Export enhanced service configuration variables
+export REACT_APP_BANNER_IMAGE OPENBALENA_API_VERSION
+export PGRST_DB_URI PGRST_DB_SCHEMA OPENBALENA_DB_ROLE
+export DOCKER_HOST_AMD64 DOCKER_HOST_ARM64
+export IMAGE_STORAGE_ENDPOINT IMAGE_STORAGE_BUCKET IMAGE_STORAGE_PREFIX IMAGE_STORAGE_ACCESS_KEY IMAGE_STORAGE_SECRET_KEY IMAGE_STORAGE_FORCE_PATH_STYLE
+export REACT_APP_OPEN_BALENA_UI_URL REACT_APP_OPEN_BALENA_POSTGREST_URL REACT_APP_OPEN_BALENA_REMOTE_URL REACT_APP_OPEN_BALENA_API_URL
+export API_HOST DELTA_HOST BUILDER_HOST REGISTRY_HOST
 
 echo
 echo "Environment variables exported to your shell."

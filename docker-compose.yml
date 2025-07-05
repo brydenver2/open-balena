@@ -77,6 +77,7 @@ services:
       *with-default-volumes,
     ]
     image: balena/open-balena-api:37.3.4
+    container_name: api
     depends_on:
       - redis
     environment:
@@ -122,6 +123,7 @@ services:
       *with-default-privileges,
     ]
     image: balena/open-balena-registry:2.42.0
+    container_name: registry
     volumes:
       - certs-data:/certs
       - resin-data:/balena
@@ -151,6 +153,7 @@ services:
       *with-default-privileges,
     ]
     image: balena/open-balena-vpn:11.32.28
+    container_name: vpn
     depends_on:
       - api
     environment:
@@ -167,6 +170,7 @@ services:
   db:
     <<: *base-service
     image: balena/open-balena-db:6.0.0
+    container_name: db
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
@@ -184,6 +188,7 @@ services:
       *with-default-privileges,
     ]
     image: balena/open-balena-s3:2.28.75
+    container_name: s3
     volumes:
       - s3-data:/export
       - certs-data:/certs
@@ -200,6 +205,7 @@ services:
     <<: *base-service
     # https://redis.io/blog/what-redis-license-change-means-for-our-managed-service-providers/
     image: redis:8.0-alpine
+    container_name: redis
     volumes:
       - redis-data:/data
     healthcheck:
@@ -213,7 +219,8 @@ services:
       *with-default-privileges,
       *with-default-volumes,
     ]
-    image: traefik:v3.0
+    build: src/traefik
+    container_name: traefik
     sysctls:
       # https://github.com/docker-library/haproxy/issues/160
       net.ipv4.ip_unprivileged_port_start: 0
@@ -230,14 +237,15 @@ services:
       # Traefik dashboard/stats
       - '1936:1936/tcp'
     environment:
-      LOGLEVEL: info
+      LOGLEVEL: ${LOGLEVEL:-INFO}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   # Error pages service for Traefik
   error-pages:
     <<: *base-service
-    image: nginx:alpine
+    build: src/error-pages
+    container_name: error-pages
     healthcheck:
       test: curl -f http://localhost/404.html || exit 1
       interval: 30s
@@ -249,7 +257,8 @@ services:
   # Updated to work with Traefik instead of HAProxy
   traefik-sidecar:
     <<: *base-service
-    image: alpine:latest
+    build: src/traefik-sidecar
+    container_name: traefik-sidecar
     volumes:
       - /var/run/docker.sock:/host/run/docker.sock
     environment:
@@ -266,6 +275,7 @@ services:
   cert-manager:
     <<: *base-service
     image: balena/cert-manager:0.3.3
+    container_name: cert-manager
     volumes:
       - cert-manager-data:/etc/letsencrypt
       - certs-data:/certs
@@ -285,6 +295,7 @@ services:
   balena-ca:
     <<: *base-service
     image: balena/ca-private:0.0.15
+    container_name: balena-ca
     volumes:
       - pki-data:/pki
       - certs-data:/certs
@@ -303,6 +314,7 @@ services:
   cloudflared:
     <<: *base-service
     image: cloudflare/cloudflared:latest
+    container_name: cloudflared
     restart: unless-stopped
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
@@ -322,20 +334,25 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-ui:latest
+    container_name: ui
     depends_on:
       - api
     environment:
+      # JWT secret for authentication
       OPEN_BALENA_JWT_SECRET: ${JSON_WEB_TOKEN_SECRET}
+      # S3 configuration for storage access
       OPEN_BALENA_S3_URL: https://s3.${DNS_TLD}
       OPEN_BALENA_S3_ACCESS_KEY: ${REGISTRY2_S3_KEY}
       OPEN_BALENA_S3_SECRET_KEY: ${REGISTRY2_S3_SECRET}
       OPEN_BALENA_S3_REGISTRY_BUCKET: registry-data
+      # Service URLs for internal communication
       REACT_APP_OPEN_BALENA_UI_URL: https://admin.${DNS_TLD}
       REACT_APP_OPEN_BALENA_POSTGREST_URL: https://postgrest.${DNS_TLD}
       REACT_APP_OPEN_BALENA_REMOTE_URL: https://remote.${DNS_TLD}
       REACT_APP_OPEN_BALENA_API_URL: https://api.${DNS_TLD}
+      # UI customization
       REACT_APP_OPEN_BALENA_API_VERSION: ${OPENBALENA_API_VERSION:-v37.3.4}
-      REACT_APP_BANNER_IMAGE: ${BANNER_IMAGE:-}
+      REACT_APP_BANNER_IMAGE: ${REACT_APP_BANNER_IMAGE:-./banner_illustration.svg}
       PORT: 80
 
   # PostgREST - REST API for PostgreSQL
@@ -347,11 +364,16 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-postgrest:latest
+    container_name: postgrest
     environment:
-      PGRST_DB_URI: postgres://docker:docker@db:5432/resin
-      PGRST_DB_SCHEMA: public
-      PGRST_DB_ANON_ROLE: docker
-      PGRST_SERVER_PORT: 80
+      # Database connection URI (uses external DB if EXTERNAL_POSTGRES=true)
+      PGRST_DB_URI: ${PGRST_DB_URI:-postgres://docker:docker@db:5432/resin}
+      # Database schema to expose via REST API
+      PGRST_DB_SCHEMA: ${PGRST_DB_SCHEMA:-public}
+      # JWT secret for authentication (same as used by open-balena-api)
+      PGRST_JWT_SECRET: ${JSON_WEB_TOKEN_SECRET}
+      # PostgreSQL role for database access
+      OPENBALENA_DB_ROLE: ${OPENBALENA_DB_ROLE:-docker}
 
   # Remote - Remote device access service
   remote:
@@ -362,13 +384,12 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-remote:latest
+    container_name: remote
     depends_on:
       - api
     environment:
-      COOKIE_SECRET: ${COOKIE_SESSION_SECRET}
-      BALENA_TLD: ${DNS_TLD}
-      API_HOST: api.${DNS_TLD}
-      SENTRY_DSN: ${REMOTE_SENTRY_DSN:-}
+      # Domain of your open-balena instance
+      BALENARC_BALENA_URL: ${DNS_TLD}
     ports:
       # Remote access ports for device connectivity
       - '10000:10000/tcp'
@@ -391,16 +412,26 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-builder:latest
+    container_name: builder
     depends_on:
       - api
     environment:
+      # Domain configuration
       BALENA_TLD: ${DNS_TLD}
-      API_HOST: api.${DNS_TLD}
-      DELTA_HOST: delta.${DNS_TLD}
+      # Service hostnames for internal communication
+      API_HOST: ${API_HOST:-api.${DNS_TLD}}
+      DELTA_HOST: ${DELTA_HOST:-delta.${DNS_TLD}}
+      # Docker host configurations for different architectures
+      DOCKER_HOST_AMD64: ${DOCKER_HOST_AMD64:-}
+      DOCKER_HOST_ARM64: ${DOCKER_HOST_ARM64:-}
+      # Authentication token
       TOKEN_AUTH_BUILDER_TOKEN: ${TOKEN_AUTH_BUILDER_TOKEN}
+      # Docker configuration
       DOCKER_BUILDKIT: '0'
     volumes:
+      # Persistent storage for build artifacts and cache
       - builder-storage:/storage
+      # Docker socket for container builds
       - /var/run/docker.sock:/var/run/docker.sock
     privileged: true
 
@@ -413,15 +444,31 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-delta:latest
+    container_name: delta
     depends_on:
       - api
     environment:
+      # Domain configuration
       BALENA_TLD: ${DNS_TLD}
-      API_HOST: api.${DNS_TLD}
-      BUILDER_HOST: builder.${DNS_TLD}
+      # Registry hostname for internal communication
+      REGISTRY_HOST: ${REGISTRY_HOST:-registry.${DNS_TLD}}
+      # Docker host configuration
+      DOCKER_HOST: unix:///var/run/docker.sock
+      # Authentication token
       TOKEN_AUTH_BUILDER_TOKEN: ${TOKEN_AUTH_BUILDER_TOKEN}
+      # Docker configuration
+      DOCKER_BUILDKIT: '0'
     volumes:
+      # Persistent storage for delta processing workspace
       - delta-storage:/storage
+      # Volume for balena-engine overlay2 filesystem support
+      - /var/lib/balena-engine:/var/lib/balena-engine
+      # Volume for rsync deltas (v2 delta support)
+      - /delta-rsync:/delta-rsync
+      # Docker socket for container operations
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Certificate volume for authentication (API public key)
+      - certs-data:/certs
 
   # Helper - Utility functions service
   helper:
@@ -432,13 +479,21 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-helper:latest
+    container_name: helper
     depends_on:
       - api
     environment:
-      BALENA_TLD: ${DNS_TLD}
-      API_HOST: api.${DNS_TLD}
-      S3_HOST: s3.${DNS_TLD}
+      # API hostname for internal communication
+      API_HOST: ${API_HOST:-api.${DNS_TLD}}
+      # S3 storage configuration
+      IMAGE_STORAGE_ENDPOINT: ${IMAGE_STORAGE_ENDPOINT:-s3.${DNS_TLD}}
+      IMAGE_STORAGE_BUCKET: ${IMAGE_STORAGE_BUCKET:-resin-production-img-cloudformation}
+      IMAGE_STORAGE_PREFIX: ${IMAGE_STORAGE_PREFIX:-images}
+      IMAGE_STORAGE_ACCESS_KEY: ${IMAGE_STORAGE_ACCESS_KEY:-${REGISTRY2_S3_KEY}}
+      IMAGE_STORAGE_SECRET_KEY: ${IMAGE_STORAGE_SECRET_KEY:-${REGISTRY2_S3_SECRET}}
+      IMAGE_STORAGE_FORCE_PATH_STYLE: ${IMAGE_STORAGE_FORCE_PATH_STYLE:-true}
     volumes:
+      # Persistent storage for downloads and supervisor releases
       - helper-storage:/storage
 
 
