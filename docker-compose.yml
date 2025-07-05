@@ -77,6 +77,7 @@ services:
       *with-default-volumes,
     ]
     image: balena/open-balena-api:37.3.4
+    container_name: api
     depends_on:
       - redis
     environment:
@@ -116,7 +117,36 @@ services:
     labels:
       # Enable Traefik discovery for API service
       traefik.enable: 'true'
+      # API router for api.* domains
+      traefik.http.routers.api.rule: 'HostRegexp(`api\..*`)'
+      traefik.http.routers.api.entrypoints: 'web,websecure'
+      traefik.http.routers.api.service: 'api'
+      traefik.http.routers.api.tls: 'true'
+      traefik.http.routers.api.priority: '100'
+      traefik.http.routers.api.middlewares: 'cors-headers,forwarded-proto'
+      # Health check router
+      traefik.http.routers.health.rule: 'Path(`/health`)'
+      traefik.http.routers.health.entrypoints: 'web,websecure'
+      traefik.http.routers.health.service: 'api'
+      traefik.http.routers.health.priority: '200'
+      # Default/PDU router
+      traefik.http.routers.pdu.rule: 'HostRegexp(`.*\.devices\..*`) || HostRegexp(`.*\.balena-.*-devices\..*`)'
+      traefik.http.routers.pdu.entrypoints: 'web,websecure'
+      traefik.http.routers.pdu.service: 'api'
+      traefik.http.routers.pdu.tls: 'true'
+      traefik.http.routers.pdu.priority: '10'
+      traefik.http.routers.pdu.middlewares: 'cors-headers,forwarded-proto'
+      # Default catch-all router
+      traefik.http.routers.default.rule: 'HostRegexp(`.*`)'
+      traefik.http.routers.default.entrypoints: 'web,websecure'
+      traefik.http.routers.default.service: 'api'
+      traefik.http.routers.default.tls: 'true'
+      traefik.http.routers.default.priority: '1'
+      traefik.http.routers.default.middlewares: 'cors-headers,forwarded-proto'
+      # Service configuration
       traefik.http.services.api.loadbalancer.server.port: '80'
+      traefik.http.services.api.loadbalancer.healthcheck.path: '/ping'
+      traefik.http.services.api.loadbalancer.healthcheck.interval: '30s'
 
   # https://github.com/balena-io/open-balena-registry
   registry:
@@ -126,6 +156,7 @@ services:
       *with-default-privileges,
     ]
     image: balena/open-balena-registry:2.42.0
+    container_name: registry
     volumes:
       - certs-data:/certs
       - resin-data:/balena
@@ -146,7 +177,17 @@ services:
     labels:
       # Enable Traefik discovery for Registry service
       traefik.enable: 'true'
+      # Registry router for registry2.* domains
+      traefik.http.routers.registry.rule: 'HostRegexp(`registry2\..*`)'
+      traefik.http.routers.registry.entrypoints: 'web,websecure'
+      traefik.http.routers.registry.service: 'registry'
+      traefik.http.routers.registry.tls: 'true'
+      traefik.http.routers.registry.priority: '90'
+      traefik.http.routers.registry.middlewares: 'cors-headers,forwarded-proto-http'
+      # Service configuration
       traefik.http.services.registry.loadbalancer.server.port: '80'
+      traefik.http.services.registry.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.registry.loadbalancer.healthcheck.interval: '30s'
 
   # https://github.com/balena-io/open-balena-vpn
   vpn:
@@ -159,6 +200,7 @@ services:
       *with-default-privileges,
     ]
     image: balena/open-balena-vpn:11.32.28
+    container_name: vpn
     depends_on:
       - api
     environment:
@@ -170,11 +212,31 @@ services:
       VPN_SERVICE_REGISTER_INTERFACE: eth0
     devices:
       - /dev/net/tun
+    labels:
+      # Enable Traefik discovery for VPN TCP routing
+      traefik.enable: 'true'
+      # TCP router for tunnel.* SNI traffic
+      traefik.tcp.routers.tunnel.rule: 'HostSNI(`tunnel.*`)'
+      traefik.tcp.routers.tunnel.entrypoints: 'websecure'
+      traefik.tcp.routers.tunnel.service: 'tunnel'
+      traefik.tcp.routers.tunnel.tls.passthrough: 'false'
+      # TCP router for VPN non-SSL traffic
+      traefik.tcp.routers.vpn.rule: 'HostSNI(`*`)'
+      traefik.tcp.routers.vpn.entrypoints: 'websecure'
+      traefik.tcp.routers.vpn.service: 'vpn'
+      traefik.tcp.routers.vpn.tls.passthrough: 'true'
+      traefik.tcp.routers.vpn.priority: '1'
+      # TCP services
+      traefik.tcp.services.tunnel.loadbalancer.server.port: '3128'
+      traefik.tcp.services.tunnel.loadbalancer.proxyprotocol.version: '2'
+      traefik.tcp.services.vpn.loadbalancer.server.port: '443'
+      traefik.tcp.services.vpn.loadbalancer.proxyprotocol.version: '2'
 
   # https://github.com/balena-io/open-balena-db
   db:
     <<: *base-service
     image: balena/open-balena-db:6.0.0
+    container_name: db
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
@@ -192,6 +254,7 @@ services:
       *with-default-privileges,
     ]
     image: balena/open-balena-s3:2.28.75
+    container_name: s3
     volumes:
       - s3-data:/export
       - certs-data:/certs
@@ -205,13 +268,35 @@ services:
     labels:
       # Enable Traefik discovery for S3 service
       traefik.enable: 'true'
+      # S3 router for s3.* domains
+      traefik.http.routers.s3.rule: 'HostRegexp(`s3\..*`)'
+      traefik.http.routers.s3.entrypoints: 'web,websecure'
+      traefik.http.routers.s3.service: 's3'
+      traefik.http.routers.s3.tls: 'true'
+      traefik.http.routers.s3.priority: '80'
+      traefik.http.routers.s3.middlewares: 'cors-headers,forwarded-proto-http'
+      # MinIO router for minio.* domains
+      traefik.http.routers.minio.rule: 'HostRegexp(`minio\..*`)'
+      traefik.http.routers.minio.entrypoints: 'web,websecure'
+      traefik.http.routers.minio.service: 'minio'
+      traefik.http.routers.minio.tls: 'true'
+      traefik.http.routers.minio.priority: '70'
+      traefik.http.routers.minio.middlewares: 'cors-headers,forwarded-proto-http'
+      # Service configuration
       traefik.http.services.s3.loadbalancer.server.port: '80'
+      traefik.http.services.s3.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.s3.loadbalancer.healthcheck.interval: '30s'
+      # MinIO service configuration
+      traefik.http.services.minio.loadbalancer.server.port: '43697'
+      traefik.http.services.minio.loadbalancer.healthcheck.path: '/minio/health/live'
+      traefik.http.services.minio.loadbalancer.healthcheck.interval: '30s'
 
   # https://hub.docker.com/_/redis
   redis:
     <<: *base-service
     # https://redis.io/blog/what-redis-license-change-means-for-our-managed-service-providers/
     image: redis:8.0-alpine
+    container_name: redis
     volumes:
       - redis-data:/data
     healthcheck:
@@ -226,6 +311,7 @@ services:
       *with-default-volumes,
     ]
     image: traefik:v3.0
+    container_name: traefik
     sysctls:
       # https://github.com/docker-library/haproxy/issues/160
       net.ipv4.ip_unprivileged_port_start: 0
@@ -245,14 +331,48 @@ services:
       LOGLEVEL: info
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # Mount Traefik configuration files for helper service routing
-      - ./src/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./src/traefik/templates/:/etc/traefik/dynamic/:ro
+    command:
+      # Static configuration via command line
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--ping=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.traefik.address=:1936"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=open-balena_default"
+      - "--log.level=${LOGLEVEL:-INFO}"
+      - "--accesslog=true"
+      - "--metrics.prometheus=true"
+      - "--serversTransport.insecureSkipVerify=true"
+      - "--certificatesresolvers.default.acme.email=${ACME_EMAIL:-}"
+      - "--certificatesresolvers.default.acme.storage=/certs/acme.json"
+      - "--certificatesresolvers.default.acme.httpchallenge.entrypoint=web"
+    labels:
+      # Middlewares for all services
+      # CORS headers middleware
+      traefik.http.middlewares.cors-headers.headers.accesscontrolallowmethods: 'GET,POST,PUT,DELETE,OPTIONS'
+      traefik.http.middlewares.cors-headers.headers.accesscontrolalloworiginlist: '*'
+      traefik.http.middlewares.cors-headers.headers.accesscontrolallowheaders: '*'
+      traefik.http.middlewares.cors-headers.headers.accesscontrolexposeheaders: '*'
+      traefik.http.middlewares.cors-headers.headers.accesscontrolallowcredentials: 'true'
+      traefik.http.middlewares.cors-headers.headers.accesscontrolmaxage: '100'
+      traefik.http.middlewares.cors-headers.headers.addvaryheader: 'true'
+      # Forward protocol for HTTPS
+      traefik.http.middlewares.forwarded-proto.headers.customrequestheaders.X-Forwarded-Proto: 'https'
+      # Forward protocol for HTTP
+      traefik.http.middlewares.forwarded-proto-http.headers.customrequestheaders.X-Forwarded-Proto: 'http'
+      # Basic authentication for CA service
+      traefik.http.middlewares.ca-auth.basicauth.users: 'balena:$$2a$$10$$7OvV8rHdPtKOd0N5.CJeZ.aDdJa9QTxO3qSKvY4VQnJKkJKJkJKJK'
+      traefik.http.middlewares.ca-auth.basicauth.removeheader: 'true'
+      traefik.http.middlewares.ca-auth.basicauth.realm: 'balena-ca'
 
   # Error pages service for Traefik
   error-pages:
     <<: *base-service
     image: nginx:alpine
+    container_name: error-pages
     healthcheck:
       test: curl -f http://localhost/404.html || exit 1
       interval: 30s
@@ -265,6 +385,7 @@ services:
   traefik-sidecar:
     <<: *base-service
     image: alpine:latest
+    container_name: traefik-sidecar
     volumes:
       - /var/run/docker.sock:/host/run/docker.sock
     environment:
@@ -281,6 +402,7 @@ services:
   cert-manager:
     <<: *base-service
     image: balena/cert-manager:0.3.3
+    container_name: cert-manager
     volumes:
       - cert-manager-data:/etc/letsencrypt
       - certs-data:/certs
@@ -300,6 +422,7 @@ services:
   balena-ca:
     <<: *base-service
     image: balena/ca-private:0.0.15
+    container_name: balena-ca
     volumes:
       - pki-data:/pki
       - certs-data:/certs
@@ -315,12 +438,41 @@ services:
       io.balena.features.supervisor-api: 1
       # Enable Traefik discovery for CA service
       traefik.enable: 'true'
+      # CA CRL router (no authentication for CRL requests)
+      traefik.http.routers.ca-crl.rule: 'HostRegexp(`ca\..*`) && PathPrefix(`/api/v1/cfssl/crl`)'
+      traefik.http.routers.ca-crl.entrypoints: 'web,websecure'
+      traefik.http.routers.ca-crl.service: 'ca'
+      traefik.http.routers.ca-crl.tls: 'true'
+      traefik.http.routers.ca-crl.priority: '65'
+      traefik.http.routers.ca-crl.middlewares: 'cors-headers,forwarded-proto'
+      # CA router with authentication
+      traefik.http.routers.ca.rule: 'HostRegexp(`ca\..*`)'
+      traefik.http.routers.ca.entrypoints: 'web,websecure'
+      traefik.http.routers.ca.service: 'ca'
+      traefik.http.routers.ca.tls: 'true'
+      traefik.http.routers.ca.priority: '60'
+      traefik.http.routers.ca.middlewares: 'cors-headers,forwarded-proto,ca-auth'
+      # OCSP router
+      traefik.http.routers.ocsp.rule: 'HostRegexp(`ocsp\..*`)'
+      traefik.http.routers.ocsp.entrypoints: 'web,websecure'
+      traefik.http.routers.ocsp.service: 'ocsp'
+      traefik.http.routers.ocsp.tls: 'true'
+      traefik.http.routers.ocsp.priority: '50'
+      traefik.http.routers.ocsp.middlewares: 'cors-headers,forwarded-proto'
+      # Service configuration
       traefik.http.services.ca.loadbalancer.server.port: '8888'
+      traefik.http.services.ca.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.ca.loadbalancer.healthcheck.interval: '30s'
+      # OCSP service configuration
+      traefik.http.services.ocsp.loadbalancer.server.port: '8889'
+      traefik.http.services.ocsp.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.ocsp.loadbalancer.healthcheck.interval: '30s'
 
   # Cloudflare Tunnel service for secure external access
   cloudflared:
     <<: *base-service
     image: cloudflare/cloudflared:latest
+    container_name: cloudflared
     restart: unless-stopped
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
@@ -340,6 +492,7 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-ui:latest
+    container_name: ui
     depends_on:
       - api
     environment:
@@ -362,7 +515,17 @@ services:
     labels:
       # Enable Traefik discovery for UI service
       traefik.enable: 'true'
+      # UI router for admin.* and ui.* domains
+      traefik.http.routers.ui.rule: 'HostRegexp(`admin\..*`) || HostRegexp(`ui\..*`)'
+      traefik.http.routers.ui.entrypoints: 'web,websecure'
+      traefik.http.routers.ui.service: 'ui'
+      traefik.http.routers.ui.tls: 'true'
+      traefik.http.routers.ui.priority: '110'
+      traefik.http.routers.ui.middlewares: 'cors-headers,forwarded-proto'
+      # Service configuration
       traefik.http.services.ui.loadbalancer.server.port: '80'
+      traefik.http.services.ui.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.ui.loadbalancer.healthcheck.interval: '30s'
 
   # PostgREST - REST API for PostgreSQL
   postgrest:
@@ -373,6 +536,7 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-postgrest:latest
+    container_name: postgrest
     environment:
       # Database connection URI (uses external DB if EXTERNAL_POSTGRES=true)
       PGRST_DB_URI: ${PGRST_DB_URI:-postgres://docker:docker@db:5432/resin}
@@ -385,7 +549,17 @@ services:
     labels:
       # Enable Traefik discovery for PostgREST service
       traefik.enable: 'true'
+      # PostgREST router for postgrest.* domains
+      traefik.http.routers.postgrest.rule: 'HostRegexp(`postgrest\..*`)'
+      traefik.http.routers.postgrest.entrypoints: 'web,websecure'
+      traefik.http.routers.postgrest.service: 'postgrest'
+      traefik.http.routers.postgrest.tls: 'true'
+      traefik.http.routers.postgrest.priority: '105'
+      traefik.http.routers.postgrest.middlewares: 'cors-headers,forwarded-proto'
+      # Service configuration
       traefik.http.services.postgrest.loadbalancer.server.port: '80'
+      traefik.http.services.postgrest.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.postgrest.loadbalancer.healthcheck.interval: '30s'
 
   # Remote - Remote device access service
   remote:
@@ -396,6 +570,7 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-remote:latest
+    container_name: remote
     depends_on:
       - api
     environment:
@@ -416,7 +591,17 @@ services:
     labels:
       # Enable Traefik discovery for Remote service
       traefik.enable: 'true'
+      # Remote router for remote.* domains
+      traefik.http.routers.remote.rule: 'HostRegexp(`remote\..*`)'
+      traefik.http.routers.remote.entrypoints: 'web,websecure'
+      traefik.http.routers.remote.service: 'remote'
+      traefik.http.routers.remote.tls: 'true'
+      traefik.http.routers.remote.priority: '103'
+      traefik.http.routers.remote.middlewares: 'cors-headers,forwarded-proto'
+      # Service configuration
       traefik.http.services.remote.loadbalancer.server.port: '80'
+      traefik.http.services.remote.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.remote.loadbalancer.healthcheck.interval: '30s'
 
   # Builder - Container build functionality
   builder:
@@ -427,6 +612,7 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-builder:latest
+    container_name: builder
     depends_on:
       - api
     environment:
@@ -451,7 +637,17 @@ services:
     labels:
       # Enable Traefik discovery for Builder service
       traefik.enable: 'true'
+      # Builder router for builder.* domains
+      traefik.http.routers.builder.rule: 'HostRegexp(`builder\..*`)'
+      traefik.http.routers.builder.entrypoints: 'web,websecure'
+      traefik.http.routers.builder.service: 'builder'
+      traefik.http.routers.builder.tls: 'true'
+      traefik.http.routers.builder.priority: '102'
+      traefik.http.routers.builder.middlewares: 'cors-headers,forwarded-proto'
+      # Service configuration
       traefik.http.services.builder.loadbalancer.server.port: '80'
+      traefik.http.services.builder.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.builder.loadbalancer.healthcheck.interval: '30s'
 
   # Delta - Delta update processing service
   delta:
@@ -462,6 +658,7 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-delta:latest
+    container_name: delta
     depends_on:
       - api
     environment:
@@ -489,7 +686,17 @@ services:
     labels:
       # Enable Traefik discovery for Delta service
       traefik.enable: 'true'
+      # Delta router for delta.* domains
+      traefik.http.routers.delta.rule: 'HostRegexp(`delta\..*`)'
+      traefik.http.routers.delta.entrypoints: 'web,websecure'
+      traefik.http.routers.delta.service: 'delta'
+      traefik.http.routers.delta.tls: 'true'
+      traefik.http.routers.delta.priority: '101'
+      traefik.http.routers.delta.middlewares: 'cors-headers,forwarded-proto'
+      # Service configuration
       traefik.http.services.delta.loadbalancer.server.port: '80'
+      traefik.http.services.delta.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.delta.loadbalancer.healthcheck.interval: '30s'
 
   # Helper - Utility functions service
   helper:
@@ -500,6 +707,7 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-helper:latest
+    container_name: helper
     depends_on:
       - api
     environment:
@@ -518,8 +726,24 @@ services:
     labels:
       # Enable Traefik discovery for helper service routing
       traefik.enable: 'true'
-      # Helper service routes handled by file configuration
+      # Helper download router - Routes /download requests from api.* to helper service
+      traefik.http.routers.helper-download.rule: 'HostRegexp(`api\..*`) && PathPrefix(`/download`)'
+      traefik.http.routers.helper-download.entrypoints: 'web,websecure'
+      traefik.http.routers.helper-download.service: 'helper'
+      traefik.http.routers.helper-download.tls: 'true'
+      traefik.http.routers.helper-download.priority: '150'
+      traefik.http.routers.helper-download.middlewares: 'cors-headers,forwarded-proto'
+      # Helper supervisor router - Routes /v6/supervisor_release requests from api.* to helper service
+      traefik.http.routers.helper-supervisor.rule: 'HostRegexp(`api\..*`) && PathPrefix(`/v6/supervisor_release`)'
+      traefik.http.routers.helper-supervisor.entrypoints: 'web,websecure'
+      traefik.http.routers.helper-supervisor.service: 'helper'
+      traefik.http.routers.helper-supervisor.tls: 'true'
+      traefik.http.routers.helper-supervisor.priority: '149'
+      traefik.http.routers.helper-supervisor.middlewares: 'cors-headers,forwarded-proto'
+      # Service configuration
       traefik.http.services.helper.loadbalancer.server.port: '80'
+      traefik.http.services.helper.loadbalancer.healthcheck.path: '/'
+      traefik.http.services.helper.loadbalancer.healthcheck.interval: '30s'
 
 
   # --- End of runtime services ---
