@@ -129,30 +129,13 @@ OPENBALENA_DB_ROLE="docker"
 
 # Builder Service Configuration
 echo "# Builder Service Configuration" >> "$ENV_FILE"
+read -rp "Enter AMD64 Docker host for builder (format: tcp://host:2375, optional): " docker_host_amd64
+DOCKER_HOST_AMD64="${docker_host_amd64:-}"
+echo "DOCKER_HOST_AMD64=\"$DOCKER_HOST_AMD64\"" >> "$ENV_FILE"
 
-# Ask for builder architecture selection
-while true; do
-  read -rp "Select builder architecture [amd64/arm64]: " builder_arch
-  case "$builder_arch" in
-    amd64|arm64) break ;;
-    *) echo "Please enter 'amd64' or 'arm64'." ;;
-  esac
-done
-BUILDER_ARCH="$builder_arch"
-echo "BUILDER_ARCH=\"$BUILDER_ARCH\"" >> "$ENV_FILE"
-
-# Set the appropriate Docker host based on architecture selection
-if [[ "$BUILDER_ARCH" = "amd64" ]]; then
-  DOCKER_HOST_AMD64="docker-host-amd64:2375"
-  DOCKER_HOST_ARM64=""
-  echo "DOCKER_HOST_AMD64=\"$DOCKER_HOST_AMD64\"" >> "$ENV_FILE"
-  echo "DOCKER_HOST_ARM64=\"$DOCKER_HOST_ARM64\"" >> "$ENV_FILE"
-elif [[ "$BUILDER_ARCH" = "arm64" ]]; then
-  DOCKER_HOST_AMD64=""
-  DOCKER_HOST_ARM64="docker-host-arm64:2375"
-  echo "DOCKER_HOST_AMD64=\"$DOCKER_HOST_AMD64\"" >> "$ENV_FILE"
-  echo "DOCKER_HOST_ARM64=\"$DOCKER_HOST_ARM64\"" >> "$ENV_FILE"
-fi
+read -rp "Enter ARM64 Docker host for builder (format: tcp://host:2375, optional): " docker_host_arm64
+DOCKER_HOST_ARM64="${docker_host_arm64:-}"
+echo "DOCKER_HOST_ARM64=\"$DOCKER_HOST_ARM64\"" >> "$ENV_FILE"
 
 # Helper Service Configuration
 echo "# Helper Service Configuration" >> "$ENV_FILE"

@@ -7,8 +7,6 @@ volumes:
   resin-data: {}
   s3-data: {}
   builder-storage: {}
-  docker-host-amd64-storage: {}
-  docker-host-arm64-storage: {}
   delta-storage: {}
   helper-storage: {}
 
@@ -278,7 +276,7 @@ services:
     environment:
       DOCKER_HOST: unix:///host/run/docker.sock
       # resolved internally as {{service}}.{{dns-tld-without-balena-device-uuid}} to traefik service
-      ALIASES: api,ca,cloudlink,db,delta,logs,redis,registry2,s3,stats,tunnel,admin,ui,postgrest,remote,builder,builder-amd64,builder-arm64,docker-host-amd64,docker-host-arm64,helper
+      ALIASES: api,ca,cloudlink,db,delta,logs,redis,registry2,s3,stats,tunnel,admin,ui,postgrest,remote,builder,helper
     labels:
       io.balena.features.balena-socket: 1
       io.balena.features.supervisor-api: 1
@@ -405,33 +403,8 @@ services:
       # Domain of your open-balena instance
       BALENARC_BALENA_URL: ${DNS_TLD}
 
-  # Docker Host AMD64 - Docker daemon for AMD64 architecture builds
-  docker-host-amd64:
-    <<: [
-      *base-service,
-      *with-all-privileges,
-    ]
-    image: docker:dind
-    container_name: docker-host-amd64
-    ports:
-      - "2375:2375"
-    environment:
-      DOCKER_TLS_CERTDIR: ""
-      DOCKER_HOST: tcp://0.0.0.0:2375
-    volumes:
-      # Persistent storage for Docker daemon
-      - docker-host-amd64-storage:/var/lib/docker
-    privileged: true
-    profiles:
-      - builder-amd64
-    healthcheck:
-      test: ["CMD", "docker", "info"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Builder AMD64 - Container build functionality for AMD64 architecture
-  builder-amd64:
+  # Builder - Container build functionality
+  builder:
     <<: [
       *base-service,
       *with-default-healthcheck,
@@ -439,89 +412,28 @@ services:
       *with-default-volumes,
     ]
     image: harmonidcaputo/open-balena-builder:latest
-    container_name: builder-amd64
+    container_name: builder
     depends_on:
       - api
-      - docker-host-amd64
     environment:
       # Domain configuration
       BALENA_TLD: ${DNS_TLD}
       # Service hostnames for internal communication
       API_HOST: ${API_HOST:-api.${DNS_TLD}}
       DELTA_HOST: ${DELTA_HOST:-delta.${DNS_TLD}}
-      # Docker host configuration for AMD64
-      DOCKER_HOST: tcp://docker-host-amd64:2375
-      DOCKER_HOST_AMD64: docker-host-amd64:2375
+      # Docker host configurations for different architectures
+      DOCKER_HOST_AMD64: ${DOCKER_HOST_AMD64:-}
+      DOCKER_HOST_ARM64: ${DOCKER_HOST_ARM64:-}
       # Authentication token
       TOKEN_AUTH_BUILDER_TOKEN: ${TOKEN_AUTH_BUILDER_TOKEN}
       # Docker configuration
       DOCKER_BUILDKIT: '0'
-      # Architecture specification
-      BUILDER_ARCH: amd64
     volumes:
       # Persistent storage for build artifacts and cache
       - builder-storage:/storage
-    profiles:
-      - builder-amd64
-
-  # Docker Host ARM64 - Docker daemon for ARM64 architecture builds
-  docker-host-arm64:
-    <<: [
-      *base-service,
-      *with-all-privileges,
-    ]
-    image: docker:dind
-    container_name: docker-host-arm64
-    ports:
-      - "2376:2375"
-    environment:
-      DOCKER_TLS_CERTDIR: ""
-      DOCKER_HOST: tcp://0.0.0.0:2375
-    volumes:
-      # Persistent storage for Docker daemon
-      - docker-host-arm64-storage:/var/lib/docker
+      # Docker socket for container builds
+      - /var/run/docker.sock:/var/run/docker.sock
     privileged: true
-    profiles:
-      - builder-arm64
-    healthcheck:
-      test: ["CMD", "docker", "info"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Builder ARM64 - Container build functionality for ARM64 architecture
-  builder-arm64:
-    <<: [
-      *base-service,
-      *with-default-healthcheck,
-      *with-default-privileges,
-      *with-default-volumes,
-    ]
-    image: harmonidcaputo/open-balena-builder:latest
-    container_name: builder-arm64
-    depends_on:
-      - api
-      - docker-host-arm64
-    environment:
-      # Domain configuration
-      BALENA_TLD: ${DNS_TLD}
-      # Service hostnames for internal communication
-      API_HOST: ${API_HOST:-api.${DNS_TLD}}
-      DELTA_HOST: ${DELTA_HOST:-delta.${DNS_TLD}}
-      # Docker host configuration for ARM64
-      DOCKER_HOST: tcp://docker-host-arm64:2375
-      DOCKER_HOST_ARM64: docker-host-arm64:2375
-      # Authentication token
-      TOKEN_AUTH_BUILDER_TOKEN: ${TOKEN_AUTH_BUILDER_TOKEN}
-      # Docker configuration
-      DOCKER_BUILDKIT: '0'
-      # Architecture specification
-      BUILDER_ARCH: arm64
-    volumes:
-      # Persistent storage for build artifacts and cache
-      - builder-storage:/storage
-    profiles:
-      - builder-arm64
 
   # Delta - Delta update processing service
   delta:

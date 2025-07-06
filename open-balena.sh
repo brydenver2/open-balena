@@ -328,18 +328,6 @@ start_services() {
         echo "Using external S3 service"
     fi
     
-    # Add builder architecture profile
-    if [[ "${BUILDER_ARCH:-}" = "amd64" ]]; then
-        profiles+=("--profile" "builder-amd64")
-        echo "Using AMD64 builder service"
-    elif [[ "${BUILDER_ARCH:-}" = "arm64" ]]; then
-        profiles+=("--profile" "builder-arm64")
-        echo "Using ARM64 builder service"
-    else
-        echo "Warning: BUILDER_ARCH not set or invalid. No builder service will be started."
-        echo "Set BUILDER_ARCH to 'amd64' or 'arm64' to enable builder functionality."
-    fi
-    
     # Check if NFS volumes should be used
     local compose_files=("docker-compose.yml")
     if use_nfs_volumes; then
@@ -370,24 +358,6 @@ start_services() {
 stop_services() {
     echo "==> Stopping OpenBalena services..."
     
-    # Determine which profiles to use based on external services
-    local profiles=()
-    
-    if [[ "${EXTERNAL_POSTGRES:-false}" != "true" ]]; then
-        profiles+=("--profile" "internal-postgres")
-    fi
-    
-    if [[ "${EXTERNAL_S3:-false}" != "true" ]]; then
-        profiles+=("--profile" "internal-s3")
-    fi
-    
-    # Add builder architecture profile
-    if [[ "${BUILDER_ARCH:-}" = "amd64" ]]; then
-        profiles+=("--profile" "builder-amd64")
-    elif [[ "${BUILDER_ARCH:-}" = "arm64" ]]; then
-        profiles+=("--profile" "builder-arm64")
-    fi
-    
     # Check if NFS volumes should be used
     local compose_files=("docker-compose.yml")
     if use_nfs_volumes; then
@@ -400,7 +370,7 @@ stop_services() {
         compose_cmd+=("-f" "$file")
     done
     
-    "${compose_cmd[@]}" "${profiles[@]}" down
+    "${compose_cmd[@]}" down
     echo "✓ Services stopped."
 }
 
@@ -408,24 +378,6 @@ stop_services() {
 restart_services() {
     echo "==> Restarting OpenBalena services..."
     
-    # Determine which profiles to use based on external services
-    local profiles=()
-    
-    if [[ "${EXTERNAL_POSTGRES:-false}" != "true" ]]; then
-        profiles+=("--profile" "internal-postgres")
-    fi
-    
-    if [[ "${EXTERNAL_S3:-false}" != "true" ]]; then
-        profiles+=("--profile" "internal-s3")
-    fi
-    
-    # Add builder architecture profile
-    if [[ "${BUILDER_ARCH:-}" = "amd64" ]]; then
-        profiles+=("--profile" "builder-amd64")
-    elif [[ "${BUILDER_ARCH:-}" = "arm64" ]]; then
-        profiles+=("--profile" "builder-arm64")
-    fi
-    
     # Check if NFS volumes should be used
     local compose_files=("docker-compose.yml")
     if use_nfs_volumes; then
@@ -438,7 +390,7 @@ restart_services() {
         compose_cmd+=("-f" "$file")
     done
     
-    "${compose_cmd[@]}" "${profiles[@]}" restart
+    "${compose_cmd[@]}" restart
     echo "==> Waiting for API service to become healthy..."
     wait_for_service "api"
     echo "✓ Services restarted."
@@ -448,24 +400,6 @@ restart_services() {
 destroy_services() {
     echo "==> Destroying OpenBalena services and volumes..."
     
-    # Determine which profiles to use based on external services
-    local profiles=()
-    
-    if [[ "${EXTERNAL_POSTGRES:-false}" != "true" ]]; then
-        profiles+=("--profile" "internal-postgres")
-    fi
-    
-    if [[ "${EXTERNAL_S3:-false}" != "true" ]]; then
-        profiles+=("--profile" "internal-s3")
-    fi
-    
-    # Add builder architecture profile
-    if [[ "${BUILDER_ARCH:-}" = "amd64" ]]; then
-        profiles+=("--profile" "builder-amd64")
-    elif [[ "${BUILDER_ARCH:-}" = "arm64" ]]; then
-        profiles+=("--profile" "builder-arm64")
-    fi
-    
     # Check if NFS volumes should be used
     local compose_files=("docker-compose.yml")
     if use_nfs_volumes; then
@@ -478,7 +412,7 @@ destroy_services() {
         compose_cmd+=("-f" "$file")
     done
     
-    "${compose_cmd[@]}" "${profiles[@]}" down --volumes --remove-orphans
+    "${compose_cmd[@]}" down --volumes --remove-orphans
     echo "✓ Services and volumes destroyed."
 }
 
@@ -560,24 +494,6 @@ show_logs() {
         echo "Usage: $0 logs SERVICE_NAME"
         echo "Available services:"
         
-        # Determine which profiles to use based on external services
-        local profiles=()
-        
-        if [[ "${EXTERNAL_POSTGRES:-false}" != "true" ]]; then
-            profiles+=("--profile" "internal-postgres")
-        fi
-        
-        if [[ "${EXTERNAL_S3:-false}" != "true" ]]; then
-            profiles+=("--profile" "internal-s3")
-        fi
-        
-        # Add builder architecture profile
-        if [[ "${BUILDER_ARCH:-}" = "amd64" ]]; then
-            profiles+=("--profile" "builder-amd64")
-        elif [[ "${BUILDER_ARCH:-}" = "arm64" ]]; then
-            profiles+=("--profile" "builder-arm64")
-        fi
-        
         # Check if NFS volumes should be used
         local compose_files=("docker-compose.yml")
         if use_nfs_volumes; then
@@ -590,7 +506,7 @@ show_logs() {
             compose_cmd+=("-f" "$file")
         done
         
-        "${compose_cmd[@]}" "${profiles[@]}" config --services | sort
+        "${compose_cmd[@]}" config --services | sort
         exit 1
     fi
     
@@ -613,28 +529,6 @@ show_logs() {
 show_status() {
     echo "==> OpenBalena service status:"
     
-    # Determine which profiles to use based on external services
-    local profiles=()
-    
-    if [[ "${EXTERNAL_POSTGRES:-false}" != "true" ]]; then
-        profiles+=("--profile" "internal-postgres")
-    fi
-    
-    if [[ "${EXTERNAL_S3:-false}" != "true" ]]; then
-        profiles+=("--profile" "internal-s3")
-    fi
-    
-    # Add builder architecture profile
-    if [[ "${BUILDER_ARCH:-}" = "amd64" ]]; then
-        profiles+=("--profile" "builder-amd64")
-        echo "Using AMD64 builder"
-    elif [[ "${BUILDER_ARCH:-}" = "arm64" ]]; then
-        profiles+=("--profile" "builder-arm64")
-        echo "Using ARM64 builder"
-    else
-        echo "No builder architecture configured"
-    fi
-    
     # Check if NFS volumes should be used
     local compose_files=("docker-compose.yml")
     if use_nfs_volumes; then
@@ -650,7 +544,7 @@ show_status() {
         compose_cmd+=("-f" "$file")
     done
     
-    "${compose_cmd[@]}" "${profiles[@]}" ps
+    "${compose_cmd[@]}" ps
 }
 
 # Show environment configuration
