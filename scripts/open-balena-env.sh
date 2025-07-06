@@ -143,13 +143,13 @@ echo "BUILDER_ARCH=\"$BUILDER_ARCH\"" >> "$ENV_FILE"
 
 # Set the appropriate Docker host based on architecture selection
 if [[ "$BUILDER_ARCH" = "amd64" ]]; then
-  DOCKER_HOST_AMD64="builder-amd64:2375"
+  DOCKER_HOST_AMD64="docker-host-amd64:2375"
   DOCKER_HOST_ARM64=""
   echo "DOCKER_HOST_AMD64=\"$DOCKER_HOST_AMD64\"" >> "$ENV_FILE"
   echo "DOCKER_HOST_ARM64=\"$DOCKER_HOST_ARM64\"" >> "$ENV_FILE"
 elif [[ "$BUILDER_ARCH" = "arm64" ]]; then
   DOCKER_HOST_AMD64=""
-  DOCKER_HOST_ARM64="builder-arm64:2375"
+  DOCKER_HOST_ARM64="docker-host-arm64:2375"
   echo "DOCKER_HOST_AMD64=\"$DOCKER_HOST_AMD64\"" >> "$ENV_FILE"
   echo "DOCKER_HOST_ARM64=\"$DOCKER_HOST_ARM64\"" >> "$ENV_FILE"
 fi
