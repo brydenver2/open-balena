@@ -35,6 +35,30 @@ check_dns_tld() {
     fi
 }
 
+# Ensure BALENA_DEVICE_UUID is set
+check_balena_device_uuid() {
+    if [[ -z "${BALENA_DEVICE_UUID:-}" ]]; then
+        echo "Error: BALENA_DEVICE_UUID is not set."
+        echo "Please run 'config' command first or set BALENA_DEVICE_UUID environment variable."
+        printf "You can generate one with: head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \\n'\n"
+        exit 1
+    fi
+}
+
+# Run Traefik migration validation
+run_traefik_validation() {
+    echo "==> Running Traefik migration validation..."
+    if [[ -f "scripts/validate-traefik-migration.sh" ]]; then
+        if ! bash scripts/validate-traefik-migration.sh; then
+            echo "❌ Traefik migration validation failed. Please fix the issues above before continuing."
+            exit 1
+        fi
+        echo "✅ Traefik migration validation passed."
+    else
+        echo "⚠️  Warning: scripts/validate-traefik-migration.sh not found. Skipping validation."
+    fi
+}
+
 # Show help information
 show_help() {
     cat << EOF
@@ -61,6 +85,7 @@ Commands:
 
 Environment Variables:
   DNS_TLD                   - Your domain (required)
+  BALENA_DEVICE_UUID        - Device UUID for Traefik configuration (required)
   EXTERNAL_POSTGRES         - Use external PostgreSQL (default: false)
   EXTERNAL_S3               - Use external S3 (default: false)
   SUPERUSER_EMAIL           - Admin email (default: admin@\$DNS_TLD)
@@ -69,6 +94,11 @@ Environment Variables:
   NFS_HOST                  - NFS server hostname or IP (required when USE_NFS=true)
   NFS_PORT                  - NFS server port (default: 2049)
   NFS_PATH                  - NFS mount path (default: /openbalena)
+
+Notes:
+  - The 'up', 'auto-pki', and 'custom-pki' commands run Traefik migration validation
+  - DNS_TLD and BALENA_DEVICE_UUID are required for all start commands
+  - Use '$0 config' to generate .env file with required environment variables
 
 Examples:
   $0 config                 # Generate .env configuration
@@ -184,6 +214,11 @@ generate_config() {
 start_auto_pki() {
     echo "==> Starting OpenBalena with auto-PKI (LetsEncrypt/ACME)..."
     
+    # Run pre-startup validation
+    check_dns_tld
+    check_balena_device_uuid
+    run_traefik_validation
+    
     # Ensure .env exists
     if [[ ! -f .env ]]; then
         echo "Error: .env file not found. Run '$0 config' first."
@@ -235,6 +270,11 @@ start_auto_pki() {
 start_custom_pki() {
     echo "==> Starting OpenBalena with custom PKI certificates..."
     
+    # Run pre-startup validation
+    check_dns_tld
+    check_balena_device_uuid
+    run_traefik_validation
+    
     # Ensure .env exists
     if [[ ! -f .env ]]; then
         echo "Error: .env file not found. Run '$0 config' first."
@@ -259,6 +299,11 @@ start_custom_pki() {
 # Start services with docker compose
 start_services() {
     echo "==> Starting OpenBalena services..."
+    
+    # Run pre-startup validation
+    check_dns_tld
+    check_balena_device_uuid
+    run_traefik_validation
     
     # Ensure .env exists
     if [[ ! -f .env ]]; then
