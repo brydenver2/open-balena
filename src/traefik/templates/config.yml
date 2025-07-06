@@ -145,6 +145,17 @@ http:
       tls: true
       priority: 103
 
+    # Remote service router for port 10000 - HTTP access
+    remote-10000-http-router:
+      rule: "HostRegexp(`{host:.*}`)"
+      service: remote-service
+      entryPoints:
+        - remote-10000
+      middlewares:
+        - cors-headers
+        - forwarded-proto
+      priority: 100
+
     # Builder service router - Container build functionality
     builder-router:
       rule: "HostRegexp(`{subdomain:builder\\..*}`)"
@@ -416,14 +427,7 @@ tcp:
         passthrough: true
       priority: 1
 
-    # Remote device access routers for TCP ports 10000-10009
-    remote-10000-router:
-      rule: "HostSNI(`*`)"
-      service: remote-tcp-10000-service
-      entryPoints:
-        - remote-10000
-      priority: 100
-
+    # Remote device access routers for TCP ports 10001-10009 (10000 is HTTP)
     remote-10001-router:
       rule: "HostSNI(`*`)"
       service: remote-tcp-10001-service
@@ -504,12 +508,7 @@ tcp:
         proxyProtocol:
           version: 2
 
-    # Remote device access TCP services for individual ports
-    remote-tcp-10000-service:
-      loadBalancer:
-        servers:
-          - address: "remote:10000"
-
+    # Remote device access TCP services for ports 10001-10009 (10000 uses HTTP service)
     remote-tcp-10001-service:
       loadBalancer:
         servers:
