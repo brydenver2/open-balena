@@ -47,6 +47,14 @@ ask_var SUPERUSER_EMAIL "Enter superuser email"
 ask_var SUPERUSER_PASSWORD "Enter superuser password" 1
 ask_var TUNNEL_TOKEN "Enter your cloudflared TUNNEL_TOKEN"
 
+# Device UUID for Traefik configuration
+read -rp "Enter BALENA_DEVICE_UUID (or press Enter to generate): " device_uuid
+if [[ -z "$device_uuid" ]]; then
+  device_uuid=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
+  echo "Generated BALENA_DEVICE_UUID: $device_uuid"
+fi
+echo "BALENA_DEVICE_UUID=\"$device_uuid\"" >> "$ENV_FILE"
+
 # External Postgres
 read -rp "Use external Postgres DB? [y/N]: " use_pg
 if [[ "$use_pg" =~ ^[Yy]$ ]]; then
