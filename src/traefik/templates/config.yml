@@ -299,7 +299,7 @@ http:
     postgrest-service:
       loadBalancer:
         servers:
-          - url: "http://postgrest:80"
+          - url: "http://postgrest:8000"
         healthCheck:
           path: "/"
           interval: "30s"

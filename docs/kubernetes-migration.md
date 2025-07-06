@@ -75,7 +75,7 @@ All hostname patterns have been preserved:
 | UI | `admin.{hostname}` | `admin.*` \| `ui.*` | `ui:80` |
 | Builder | `builder.{hostname}` | `builder.*` | `builder:80` |
 | Delta | `delta.{hostname}` | `delta.*` | `delta:80` |
-| PostgREST | `postgrest.{hostname}` | `postgrest.*` | `postgrest:80` |
+| PostgREST | `postgrest.{hostname}` | `postgrest.*` | `postgrest:8000` |
 | Remote | `remote.{hostname}` | `remote.*` | `remote:80` |
 
 ### Special Routing
