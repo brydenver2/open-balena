@@ -163,6 +163,7 @@ The script automatically handles service profiles based on your configuration:
 The script respects the following environment variables:
 
 - `DNS_TLD` - Your domain (required)
+- `BALENA_DEVICE_UUID` - Device UUID for Traefik configuration (required)
 - `EXTERNAL_POSTGRES` - Use external PostgreSQL (default: false)
 - `EXTERNAL_S3` - Use external S3 (default: false)  
 - `SUPERUSER_EMAIL` - Admin email (default: admin@$DNS_TLD)
@@ -296,6 +297,62 @@ This command will:
 - Verify SSL certificate validity
 - Check cert-manager status if running
 - Report any certificate-related issues
+
+### Startup Validation
+
+OpenBalena includes automatic validation that runs before starting services to ensure proper configuration:
+
+#### Pre-startup Validation Flow
+
+When running `./open-balena.sh up`, `auto-pki`, or `custom-pki`, the system performs these validations:
+
+1. **DNS_TLD Check** - Ensures your domain is configured
+2. **BALENA_DEVICE_UUID Check** - Validates device UUID is set for Traefik configuration
+3. **Traefik Migration Validation** - Runs comprehensive validation of Traefik configuration
+
+If any validation fails, the startup process is halted with clear error messages.
+
+#### BALENA_DEVICE_UUID Requirement
+
+The `BALENA_DEVICE_UUID` environment variable is required for Traefik configuration. This unique identifier is used for device-specific routing and configuration.
+
+**Automatic Generation**: When running `./open-balena.sh config`, a UUID is automatically generated if not provided.
+
+**Manual Generation**: You can generate a UUID manually:
+```bash
+export BALENA_DEVICE_UUID=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
+```
+
+#### Traefik Migration Validation
+
+The validation script checks:
+- Docker Compose configuration validity
+- Traefik configuration file syntax
+- Required configuration templates
+- Error page availability
+- Container build compatibility
+- Documentation completeness
+
+**Validation Location**: The validation script is located at `scripts/validate-traefik-migration.sh` and is automatically executed during startup.
+
+#### Error Handling
+
+Clear error messages are provided when validation fails:
+
+```bash
+$ ./open-balena.sh up
+Error: BALENA_DEVICE_UUID is not set.
+Please run 'config' command first or set BALENA_DEVICE_UUID environment variable.
+You can generate one with: head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'
+```
+
+#### Bypassing Validation
+
+Validation cannot be bypassed as it ensures system integrity. If you encounter validation errors:
+
+1. Run `./open-balena.sh config` to properly configure environment variables
+2. Fix any configuration issues reported by the validation script
+3. Ensure all required files and templates are present
 
 
 ## Compatibility
