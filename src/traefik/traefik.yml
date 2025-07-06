@@ -17,6 +17,28 @@ entryPoints:
   # Stats and monitoring on port 1936
   traefik:
     address: ":1936"
+    
+  # Remote device access TCP ports
+  remote-10000:
+    address: ":10000"
+  remote-10001:
+    address: ":10001"
+  remote-10002:
+    address: ":10002"
+  remote-10003:
+    address: ":10003"
+  remote-10004:
+    address: ":10004"
+  remote-10005:
+    address: ":10005"
+  remote-10006:
+    address: ":10006"
+  remote-10007:
+    address: ":10007"
+  remote-10008:
+    address: ":10008"
+  remote-10009:
+    address: ":10009"
 
 # API and dashboard configuration  
 api:

@@ -416,6 +416,77 @@ tcp:
         passthrough: true
       priority: 1
 
+    # Remote device access routers for TCP ports 10000-10009
+    remote-10000-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10000-service
+      entryPoints:
+        - remote-10000
+      priority: 100
+
+    remote-10001-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10001-service
+      entryPoints:
+        - remote-10001
+      priority: 100
+
+    remote-10002-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10002-service
+      entryPoints:
+        - remote-10002
+      priority: 100
+
+    remote-10003-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10003-service
+      entryPoints:
+        - remote-10003
+      priority: 100
+
+    remote-10004-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10004-service
+      entryPoints:
+        - remote-10004
+      priority: 100
+
+    remote-10005-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10005-service
+      entryPoints:
+        - remote-10005
+      priority: 100
+
+    remote-10006-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10006-service
+      entryPoints:
+        - remote-10006
+      priority: 100
+
+    remote-10007-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10007-service
+      entryPoints:
+        - remote-10007
+      priority: 100
+
+    remote-10008-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10008-service
+      entryPoints:
+        - remote-10008
+      priority: 100
+
+    remote-10009-router:
+      rule: "HostSNI(`*`)"
+      service: remote-tcp-10009-service
+      entryPoints:
+        - remote-10009
+      priority: 100
+
   services:
     # Tunnel backend service (equivalent to HAProxy tunnel-backend through vpn:3128)
     tunnel-service:
@@ -432,6 +503,57 @@ tcp:
           - address: "vpn:443"
         proxyProtocol:
           version: 2
+
+    # Remote device access TCP services for individual ports
+    remote-tcp-10000-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10000"
+
+    remote-tcp-10001-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10001"
+
+    remote-tcp-10002-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10002"
+
+    remote-tcp-10003-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10003"
+
+    remote-tcp-10004-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10004"
+
+    remote-tcp-10005-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10005"
+
+    remote-tcp-10006-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10006"
+
+    remote-tcp-10007-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10007"
+
+    remote-tcp-10008-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10008"
+
+    remote-tcp-10009-service:
+      loadBalancer:
+        servers:
+          - address: "remote:10009"
 
 # TLS configuration (equivalent to HAProxy SSL settings)
 tls:
