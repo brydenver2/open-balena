@@ -153,6 +153,16 @@ OpenBalena includes an orchestration script (`open-balena.sh`) that simplifies c
 - `showenv` - Display current .env configuration
 - `showpass` - Show superuser password
 
+### Environment Validation
+
+To validate that your API container has all required environment variables configured:
+
+```bash
+./scripts/validate-api-env.sh
+```
+
+This script checks that all 20 required environment variables for the API container are properly set and validates the docker-compose configuration.
+
 The script automatically handles service profiles based on your configuration:
 - Uses internal PostgreSQL unless `EXTERNAL_POSTGRES=true`
 - Uses internal S3 unless `EXTERNAL_S3=true`
