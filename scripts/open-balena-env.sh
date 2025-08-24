@@ -65,6 +65,28 @@ if [[ "$use_pg" =~ ^[Yy]$ ]]; then
   ask_var EXTERNAL_POSTGRES_USER "External Postgres User"
   ask_var EXTERNAL_POSTGRES_PASSWORD "External Postgres Password" 1
   ask_var EXTERNAL_POSTGRES_DATABASE "External Postgres Database"
+  
+  # PostgreSQL SSL Configuration
+  read -rp "Enable SSL for external PostgreSQL? [y/N]: " use_pg_ssl
+  if [[ "$use_pg_ssl" =~ ^[Yy]$ ]]; then
+    EXTERNAL_POSTGRES_SSL=true
+    echo "EXTERNAL_POSTGRES_SSL=true" >> "$ENV_FILE"
+    read -rp "SSL mode (disable|allow|prefer|require|verify-ca|verify-full) [prefer]: " ssl_mode
+    EXTERNAL_POSTGRES_SSL_MODE="${ssl_mode:-prefer}"
+    echo "EXTERNAL_POSTGRES_SSL_MODE=\"$EXTERNAL_POSTGRES_SSL_MODE\"" >> "$ENV_FILE"
+    read -rp "Reject unauthorized SSL certificates? [y/N]: " reject_unauth
+    if [[ "$reject_unauth" =~ ^[Yy]$ ]]; then
+      EXTERNAL_POSTGRES_SSL_REJECT_UNAUTHORIZED=true
+    else
+      EXTERNAL_POSTGRES_SSL_REJECT_UNAUTHORIZED=false
+    fi
+    echo "EXTERNAL_POSTGRES_SSL_REJECT_UNAUTHORIZED=\"$EXTERNAL_POSTGRES_SSL_REJECT_UNAUTHORIZED\"" >> "$ENV_FILE"
+  else
+    EXTERNAL_POSTGRES_SSL=false
+    echo "EXTERNAL_POSTGRES_SSL=false" >> "$ENV_FILE"
+    echo "EXTERNAL_POSTGRES_SSL_MODE=\"prefer\"" >> "$ENV_FILE"
+    echo "EXTERNAL_POSTGRES_SSL_REJECT_UNAUTHORIZED=\"false\"" >> "$ENV_FILE"
+  fi
 else
   EXTERNAL_POSTGRES=false
   echo "EXTERNAL_POSTGRES=false" >> "$ENV_FILE"
@@ -114,7 +136,14 @@ echo "OPENBALENA_API_VERSION=\"$OPENBALENA_API_VERSION\"" >> "$ENV_FILE"
 
 # PostgREST Service Configuration
 if [[ "$EXTERNAL_POSTGRES" = "true" ]]; then
+  # Build the PostgreSQL connection URI with SSL parameters if enabled
   PGRST_DB_URI="postgres://${EXTERNAL_POSTGRES_USER}:${EXTERNAL_POSTGRES_PASSWORD}@${EXTERNAL_POSTGRES_HOST}:${EXTERNAL_POSTGRES_PORT}/${EXTERNAL_POSTGRES_DATABASE}"
+  if [[ "$EXTERNAL_POSTGRES_SSL" = "true" ]]; then
+    PGRST_DB_URI="${PGRST_DB_URI}?sslmode=${EXTERNAL_POSTGRES_SSL_MODE}&sslrootcert=system"
+    if [[ "$EXTERNAL_POSTGRES_SSL_REJECT_UNAUTHORIZED" = "false" ]]; then
+      PGRST_DB_URI="${PGRST_DB_URI}&sslcert=&sslkey="
+    fi
+  fi
 else
   PGRST_DB_URI="postgres://docker:docker@db:5432/resin"
 fi
@@ -278,7 +307,7 @@ WEBRESOURCES_S3_BUCKET="web-resources"
 # Export all variables in current shell
 export DNS_TLD SUPERUSER_EMAIL SUPERUSER_PASSWORD TUNNEL_TOKEN
 export EXTERNAL_POSTGRES EXTERNAL_S3
-[ "$EXTERNAL_POSTGRES" = "true" ] && export EXTERNAL_POSTGRES_HOST EXTERNAL_POSTGRES_PORT EXTERNAL_POSTGRES_USER EXTERNAL_POSTGRES_PASSWORD EXTERNAL_POSTGRES_DATABASE
+[ "$EXTERNAL_POSTGRES" = "true" ] && export EXTERNAL_POSTGRES_HOST EXTERNAL_POSTGRES_PORT EXTERNAL_POSTGRES_USER EXTERNAL_POSTGRES_PASSWORD EXTERNAL_POSTGRES_DATABASE EXTERNAL_POSTGRES_SSL EXTERNAL_POSTGRES_SSL_MODE EXTERNAL_POSTGRES_SSL_REJECT_UNAUTHORIZED
 [ "$EXTERNAL_S3" = "true" ] && export EXTERNAL_S3_ENDPOINT EXTERNAL_S3_ACCESS_KEY EXTERNAL_S3_SECRET_KEY EXTERNAL_S3_REGION
 [ -n "$ACME_EMAIL" ] && export ACME_EMAIL
 [ -n "$CLOUDFLARE_API_TOKEN" ] && export CLOUDFLARE_API_TOKEN

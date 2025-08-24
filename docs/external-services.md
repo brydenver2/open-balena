@@ -12,6 +12,9 @@ To use an external PostgreSQL server, set the following environment variables:
 - `EXTERNAL_POSTGRES_USER` - PostgreSQL username
 - `EXTERNAL_POSTGRES_PASSWORD` - PostgreSQL password
 - `EXTERNAL_POSTGRES_DATABASE` - PostgreSQL database name
+- `EXTERNAL_POSTGRES_SSL` - Enable SSL connection (default: false)
+- `EXTERNAL_POSTGRES_SSL_MODE` - SSL mode: disable|allow|prefer|require|verify-ca|verify-full (default: prefer)
+- `EXTERNAL_POSTGRES_SSL_REJECT_UNAUTHORIZED` - Reject unauthorized SSL certificates (default: false)
 
 ### Example:
 
@@ -24,6 +27,44 @@ EXTERNAL_POSTGRES_PASSWORD=securepassword \
 EXTERNAL_POSTGRES_DATABASE=balena \
 make up
 ```
+
+### Example with SSL:
+
+```bash
+DNS_TLD=mybalena.local \
+EXTERNAL_POSTGRES=true \
+EXTERNAL_POSTGRES_HOST=postgres.example.com \
+EXTERNAL_POSTGRES_USER=balena \
+EXTERNAL_POSTGRES_PASSWORD=securepassword \
+EXTERNAL_POSTGRES_DATABASE=balena \
+EXTERNAL_POSTGRES_SSL=true \
+EXTERNAL_POSTGRES_SSL_MODE=require \
+make up
+```
+
+### Troubleshooting Authentication Issues
+
+If you encounter authentication errors like "Unknown authenticationOk message type 7", your PostgreSQL server may be using SCRAM-SHA-256 authentication. To resolve this:
+
+1. **Enable SSL connection** (recommended):
+   ```bash
+   EXTERNAL_POSTGRES_SSL=true
+   EXTERNAL_POSTGRES_SSL_MODE=require
+   ```
+
+2. **Or configure your PostgreSQL server** to use MD5 authentication for the balena user:
+   ```sql
+   ALTER USER balena PASSWORD 'your_password';
+   -- In postgresql.conf:
+   password_encryption = 'md5'
+   ```
+
+3. **Or update the user password** with MD5 encryption:
+   ```sql
+   -- Connect as superuser and run:
+   SET password_encryption = 'md5';
+   ALTER USER balena PASSWORD 'your_password';
+   ```
 
 ## External S3/MinIO Configuration
 
