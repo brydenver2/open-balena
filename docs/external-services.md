@@ -25,25 +25,7 @@ EXTERNAL_POSTGRES_DATABASE=balena \
 make up
 ```
 
-### Troubleshooting Authentication Issues
 
-If you encounter authentication errors like "Unknown authenticationOk message type 7", your PostgreSQL server may be using SCRAM-SHA-256 authentication. To resolve this:
-
-1. **Configure your PostgreSQL server** to use MD5 authentication for the balena user:
-   ```sql
-   ALTER USER balena PASSWORD 'your_password';
-   -- In postgresql.conf:
-   password_encryption = 'md5'
-   ```
-
-2. **Or update the user password** with MD5 encryption:
-   ```sql
-   -- Connect as superuser and run:
-   SET password_encryption = 'md5';
-   ALTER USER balena PASSWORD 'your_password';
-   ```
-
-**Note**: SSL configuration for external PostgreSQL databases is not currently supported by the open-balena-api container. The above authentication method changes are the recommended approach for resolving SCRAM-SHA-256 compatibility issues.
 
 ## External S3/MinIO Configuration
 

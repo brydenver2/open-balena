@@ -65,7 +65,6 @@ if [[ "$use_pg" =~ ^[Yy]$ ]]; then
   ask_var EXTERNAL_POSTGRES_USER "External Postgres User"
   ask_var EXTERNAL_POSTGRES_PASSWORD "External Postgres Password" 1
   ask_var EXTERNAL_POSTGRES_DATABASE "External Postgres Database"
-  
 
 else
   EXTERNAL_POSTGRES=false
@@ -116,7 +115,6 @@ echo "OPENBALENA_API_VERSION=\"$OPENBALENA_API_VERSION\"" >> "$ENV_FILE"
 
 # PostgREST Service Configuration
 if [[ "$EXTERNAL_POSTGRES" = "true" ]]; then
-  # Build the PostgreSQL connection URI
   PGRST_DB_URI="postgres://${EXTERNAL_POSTGRES_USER}:${EXTERNAL_POSTGRES_PASSWORD}@${EXTERNAL_POSTGRES_HOST}:${EXTERNAL_POSTGRES_PORT}/${EXTERNAL_POSTGRES_DATABASE}"
 else
   PGRST_DB_URI="postgres://docker:docker@db:5432/resin"
