@@ -65,6 +65,7 @@ if [[ "$use_pg" =~ ^[Yy]$ ]]; then
   ask_var EXTERNAL_POSTGRES_USER "External Postgres User"
   ask_var EXTERNAL_POSTGRES_PASSWORD "External Postgres Password" 1
   ask_var EXTERNAL_POSTGRES_DATABASE "External Postgres Database"
+
 else
   EXTERNAL_POSTGRES=false
   echo "EXTERNAL_POSTGRES=false" >> "$ENV_FILE"
