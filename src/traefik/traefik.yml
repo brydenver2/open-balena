@@ -101,8 +101,9 @@ serversTransport:
   insecureSkipVerify: true
   # Equivalent to HAProxy timeouts
   maxIdleConnsPerHost: 200
-  dialTimeout: "5s"
-  responseHeaderTimeout: "63s"
+  forwardingTimeouts:
+    dialTimeout: "5s"
+    responseHeaderTimeout: "63s"
 
 # Ping endpoint for health checks
 ping:

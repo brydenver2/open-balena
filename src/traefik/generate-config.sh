@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Script to generate Traefik dynamic configuration with proper auth
 # This replaces the template placeholders with actual values

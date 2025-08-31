@@ -23,7 +23,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 
 # Create entrypoint script that generates config and starts traefik
 RUN echo '#!/bin/sh' > /entrypoint.sh && \
-    echo 'generate-config.sh' >> /entrypoint.sh && \
+    echo '/usr/local/bin/generate-config.sh' >> /entrypoint.sh && \
     echo 'exec traefik "$@"' >> /entrypoint.sh && \
     chmod +x /entrypoint.sh
 
