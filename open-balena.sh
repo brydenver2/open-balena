@@ -26,6 +26,27 @@ export USE_NFS=${USE_NFS:-false}
 export NFS_HOST=${NFS_HOST:-}
 export NFS_PORT=${NFS_PORT:-2049}
 export NFS_PATH=${NFS_PATH:-/openbalena}
+export STACK_NAME=${STACK_NAME:-openbalena}
+
+# Docker Swarm utility functions
+check_swarm_mode() {
+    if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q "active"; then
+        echo "Error: Docker Swarm mode is not active."
+        echo "Initialize swarm mode with: $0 swarm-init"
+        echo "Or manually with: docker swarm init"
+        exit 1
+    fi
+}
+
+check_swarm_manager() {
+    local node_role
+    node_role=$(docker info --format '{{.Swarm.ControlAvailable}}' 2>/dev/null)
+    if [[ "$node_role" != "true" ]]; then
+        echo "Error: This node is not a swarm manager."
+        echo "Stack operations must be run on a manager node."
+        exit 1
+    fi
+}
 
 # Validate required environment variables
 check_dns_tld() {
@@ -66,22 +87,31 @@ OpenBalena orchestration script
 
 Usage: $0 COMMAND [OPTIONS]
 
-Commands:
-  help      Show this help message
-  lint      Lint shell scripts using shellcheck
-  verify    Ping the public API endpoint and verify certificates
-  config    Regenerate .env file with current environment/context
-  up        Start all services
-  down      Stop all services
-  restart   Restart all services
-  destroy   Stop and remove all containers and volumes
-  auto-pki  Start all services with automatic PKI (LetsEncrypt/ACME)
-  custom-pki Start all services with custom PKI certificates
-  nfs-setup Configure NFS volumes for persistent storage
-  logs      Show logs for a service (usage: $0 logs SERVICE_NAME)
-  status    Show status of all services
-  showenv   Show current .env configuration
-  showpass  Show superuser password
+Docker Compose Commands (Standalone Mode):
+  help        Show this help message
+  lint        Lint shell scripts using shellcheck
+  verify      Ping the public API endpoint and verify certificates
+  config      Regenerate .env file with current environment/context
+  up          Start all services with Docker Compose
+  down        Stop all services with Docker Compose
+  restart     Restart all services with Docker Compose
+  destroy     Stop and remove all containers and volumes
+  auto-pki    Start all services with automatic PKI (LetsEncrypt/ACME)
+  custom-pki  Start all services with custom PKI certificates
+  nfs-setup   Configure NFS volumes for persistent storage
+  logs        Show logs for a service (usage: $0 logs SERVICE_NAME)
+  status      Show status of all services
+  showenv     Show current .env configuration
+  showpass    Show superuser password
+
+Docker Swarm Commands (Cluster Mode):
+  swarm-init        Initialize Docker Swarm mode
+  swarm-build       Build required images for swarm deployment
+  swarm-up          Deploy stack to Docker Swarm
+  swarm-down        Remove stack from Docker Swarm
+  swarm-status      Show swarm stack status
+  swarm-logs        Show swarm service logs (usage: $0 swarm-logs SERVICE_NAME)
+  swarm-nfs-setup   Configure NFS volumes for swarm deployment
 
 Environment Variables:
   DNS_TLD                   - Your domain (required)
@@ -94,21 +124,31 @@ Environment Variables:
   NFS_HOST                  - NFS server hostname or IP (required when USE_NFS=true)
   NFS_PORT                  - NFS server port (default: 2049)
   NFS_PATH                  - NFS mount path (default: /openbalena)
+  STACK_NAME                - Docker Swarm stack name (default: openbalena)
 
 Notes:
   - The 'up', 'auto-pki', and 'custom-pki' commands run Traefik migration validation
   - DNS_TLD and BALENA_DEVICE_UUID are required for all start commands
   - Use '$0 config' to generate .env file with required environment variables
+  - Swarm mode requires Docker Swarm to be initialized
+  - Some services require manager node placement for Docker socket access
 
 Examples:
-  $0 config                 # Generate .env configuration
-  $0 up                     # Start all services
-  $0 auto-pki               # Start with automatic LetsEncrypt certificates
-  $0 custom-pki             # Start with custom certificates
-  $0 nfs-setup              # Configure NFS volumes
-  $0 logs api               # Show API service logs
-  $0 verify                 # Check API endpoint and certificates
-  $0 down                   # Stop all services
+  Standalone Mode (Docker Compose):
+    $0 config                 # Generate .env configuration
+    $0 up                     # Start all services
+    $0 auto-pki               # Start with automatic LetsEncrypt certificates
+    $0 nfs-setup              # Configure NFS volumes
+    $0 logs api               # Show API service logs
+    $0 down                   # Stop all services
+
+  Cluster Mode (Docker Swarm):
+    $0 swarm-init             # Initialize swarm mode
+    $0 swarm-build            # Build required images
+    $0 swarm-up               # Deploy to swarm
+    $0 swarm-status           # Check stack status
+    $0 swarm-logs api         # Show service logs
+    $0 swarm-down             # Remove stack
 
 EOF
 }
@@ -583,46 +623,10 @@ show_password() {
 
 # Setup NFS volumes
 setup_nfs() {
-    echo "==> Setting up NFS volumes..."
+    echo "==> Setting up NFS volumes for Docker Compose..."
     
-    # Prompt for NFS configuration if not already set
-    if [[ -z "${NFS_HOST:-}" ]]; then
-        echo "NFS configuration required."
-        echo
-        echo "Enter NFS server hostname or IP: "
-        read -r NFS_HOST
-        if [[ -z "$NFS_HOST" ]]; then
-            echo "Error: NFS host is required."
-            exit 1
-        fi
-        export NFS_HOST
-    fi
-    
-    if [[ -z "${NFS_PORT:-}" ]]; then
-        echo "Enter NFS server port (default: 2049): "
-        read -r user_port
-        if [[ -n "$user_port" ]]; then
-            export NFS_PORT="$user_port"
-        else
-            export NFS_PORT="2049"
-        fi
-    fi
-    
-    if [[ -z "${NFS_PATH:-}" ]]; then
-        echo "Enter NFS mount path (default: /openbalena): "
-        read -r user_path
-        if [[ -n "$user_path" ]]; then
-            export NFS_PATH="$user_path"
-        else
-            export NFS_PATH="/openbalena"
-        fi
-    fi
-    
-    echo "==> NFS Configuration:"
-    echo "NFS_HOST: $NFS_HOST"
-    echo "NFS_PORT: $NFS_PORT"
-    echo "NFS_PATH: $NFS_PATH"
-    echo
+    # Use shared NFS configuration function
+    setup_nfs_config
     
     # Test NFS connectivity (optional - skip for now to avoid hanging)
     echo "==> Skipping NFS connectivity test (can cause timeout in some environments)"
@@ -743,6 +747,276 @@ use_nfs_volumes() {
     [[ "${USE_NFS:-false}" == "true" ]] && [[ -n "${NFS_HOST:-}" ]] && [[ -f "docker-compose.nfs.yml" ]]
 }
 
+# Docker Swarm Functions
+
+# Initialize Docker Swarm mode
+swarm_init() {
+    echo "==> Initializing Docker Swarm mode..."
+    
+    if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q "active"; then
+        echo "✓ Docker Swarm is already initialized"
+        docker node ls
+        return 0
+    fi
+    
+    echo "Initializing Docker Swarm..."
+    docker swarm init
+    
+    echo "✓ Docker Swarm initialized successfully!"
+    echo "To add worker nodes to this swarm, run the following command on worker nodes:"
+    docker swarm join-token worker
+}
+
+# Build Docker images required for swarm deployment
+swarm_build_images() {
+    echo "==> Building Docker images for Swarm deployment..."
+    
+    if [[ ! -f "scripts/build-swarm-images.sh" ]]; then
+        echo "Error: scripts/build-swarm-images.sh not found"
+        exit 1
+    fi
+    
+    chmod +x scripts/build-swarm-images.sh
+    ./scripts/build-swarm-images.sh
+}
+
+# Deploy OpenBalena stack to Docker Swarm
+swarm_start_services() {
+    echo "==> Deploying OpenBalena stack to Docker Swarm..."
+    
+    # Run pre-deployment checks
+    check_dns_tld
+    check_balena_device_uuid
+    check_swarm_mode
+    check_swarm_manager
+    
+    # Ensure .env exists
+    if [[ ! -f .env ]]; then
+        echo "Error: .env file not found. Run '$0 config' first."
+        exit 1
+    fi
+    
+    # Load environment variables for stack deployment
+    set -a
+    source .env
+    set +a
+    
+    # Determine which stack files to use
+    local stack_files=("docker-stack.yml")
+    
+    # Add internal services if not using external ones
+    if [[ "${EXTERNAL_POSTGRES:-false}" != "true" ]] || [[ "${EXTERNAL_S3:-false}" != "true" ]]; then
+        stack_files+=("docker-stack-internal.yml")
+        echo "Including internal PostgreSQL and/or S3 services"
+    fi
+    
+    # Add NFS configuration if configured
+    if use_swarm_nfs_volumes; then
+        stack_files+=("docker-stack-nfs.yml")
+        echo "Using NFS volumes on ${NFS_HOST}:${NFS_PATH}"
+    else
+        echo "Using Docker managed volumes"
+    fi
+    
+    # Build docker stack deploy command
+    local stack_cmd=("docker" "stack" "deploy")
+    for file in "${stack_files[@]}"; do
+        stack_cmd+=("-c" "$file")
+    done
+    stack_cmd+=("$STACK_NAME")
+    
+    echo "Deploying stack with command: ${stack_cmd[*]}"
+    
+    # Deploy the stack
+    "${stack_cmd[@]}"
+    
+    echo "==> Stack deployed successfully!"
+    echo "Waiting for services to start..."
+    sleep 10
+    
+    # Show stack status
+    swarm_show_status
+}
+
+# Stop OpenBalena stack in Docker Swarm
+swarm_stop_services() {
+    echo "==> Removing OpenBalena stack from Docker Swarm..."
+    
+    check_swarm_mode
+    check_swarm_manager
+    
+    if docker stack ls --format "table {{.Name}}" | grep -q "^$STACK_NAME$"; then
+        docker stack rm "$STACK_NAME"
+        echo "✓ Stack '$STACK_NAME' removed successfully"
+        
+        echo "Waiting for stack removal to complete..."
+        while docker stack ls --format "table {{.Name}}" | grep -q "^$STACK_NAME$"; do
+            sleep 2
+        done
+        echo "✓ Stack removal completed"
+    else
+        echo "Stack '$STACK_NAME' is not currently deployed"
+    fi
+}
+
+# Show Docker Swarm stack status
+swarm_show_status() {
+    echo "==> Docker Swarm stack status:"
+    
+    check_swarm_mode
+    check_swarm_manager
+    
+    echo
+    echo "Stack overview:"
+    docker stack ls
+    
+    echo
+    echo "Services in stack '$STACK_NAME':"
+    if docker stack ls --format "table {{.Name}}" | grep -q "^$STACK_NAME$"; then
+        docker stack services "$STACK_NAME"
+        
+        echo
+        echo "Service task details:"
+        docker stack ps "$STACK_NAME" --no-trunc
+    else
+        echo "Stack '$STACK_NAME' is not currently deployed"
+    fi
+}
+
+# Show logs for a specific service in the swarm stack
+swarm_show_logs() {
+    local service="${1:-}"
+    
+    if [[ -z "$service" ]]; then
+        echo "Error: Service name required"
+        echo "Usage: $0 swarm-logs SERVICE_NAME"
+        echo "Available services:"
+        if docker stack ls --format "table {{.Name}}" | grep -q "^$STACK_NAME$"; then
+            docker stack services "$STACK_NAME" --format "table {{.Name}}" | tail -n +2 | sed 's/.*_/  /'
+        fi
+        exit 1
+    fi
+    
+    check_swarm_mode
+    check_swarm_manager
+    
+    local full_service_name="${STACK_NAME}_${service}"
+    
+    echo "==> Showing logs for service: $full_service_name"
+    
+    if docker service ls --format "table {{.Name}}" | grep -q "^$full_service_name$"; then
+        docker service logs -f "$full_service_name"
+    else
+        echo "Error: Service '$full_service_name' not found"
+        echo "Available services:"
+        docker stack services "$STACK_NAME" --format "table {{.Name}}" 2>/dev/null | tail -n +2 | sed 's/.*_/  /' || echo "  No services found (stack not deployed?)"
+        exit 1
+    fi
+}
+
+# Configure NFS volumes for Docker Swarm deployment
+swarm_setup_nfs() {
+    echo "==> Configuring NFS volumes for Docker Swarm..."
+    
+    # Use the same NFS setup as compose mode, but create swarm-specific config
+    setup_nfs_config
+    
+    # Generate swarm-specific NFS configuration
+    echo "==> Generating Swarm NFS volume configuration..."
+    
+    # Read the template and substitute variables
+    if [[ ! -f "docker-stack-nfs.yml.template" ]]; then
+        echo "Error: docker-stack-nfs.yml.template not found"
+        exit 1
+    fi
+    
+    # Use envsubst to substitute environment variables
+    if command -v envsubst &> /dev/null; then
+        envsubst < docker-stack-nfs.yml.template > docker-stack-nfs.yml
+    else
+        # Fallback manual substitution
+        sed -e "s/\${NFS_HOST}/$NFS_HOST/g" \
+            -e "s/\${NFS_PORT}/$NFS_PORT/g" \
+            -e "s/\${NFS_PATH}/$NFS_PATH/g" \
+            docker-stack-nfs.yml.template > docker-stack-nfs.yml
+    fi
+    
+    echo "✓ Docker Swarm NFS configuration written to docker-stack-nfs.yml"
+    
+    # Update .env file with NFS settings
+    if [[ -f .env ]]; then
+        # Remove existing NFS settings
+        sed -i '/^USE_NFS=/d' .env
+        sed -i '/^NFS_HOST=/d' .env
+        sed -i '/^NFS_PORT=/d' .env
+        sed -i '/^NFS_PATH=/d' .env
+        
+        # Add new NFS settings
+        {
+            echo ""
+            echo "USE_NFS=true"
+            echo "NFS_HOST=$NFS_HOST"
+            echo "NFS_PORT=$NFS_PORT"
+            echo "NFS_PATH=$NFS_PATH"
+        } >> .env
+        
+        echo "✓ .env file updated with NFS configuration"
+    else
+        echo "Warning: .env file not found. NFS settings not saved."
+        echo "Run '$0 config' to generate .env file first."
+    fi
+    
+    echo
+    echo "==> Swarm NFS setup completed!"
+    echo "Your volumes will now be stored on NFS server $NFS_HOST:$NFS_PATH"
+    echo "Use '$0 swarm-up' to deploy stack with NFS volumes"
+    echo
+}
+
+# Setup NFS configuration (shared between compose and swarm)
+setup_nfs_config() {
+    if [[ -z "${NFS_HOST:-}" ]]; then
+        echo "Enter NFS server hostname or IP address: "
+        read -r user_host
+        if [[ -z "$user_host" ]]; then
+            echo "Error: NFS host is required"
+            exit 1
+        fi
+        export NFS_HOST="$user_host"
+    fi
+    
+    if [[ -z "${NFS_PORT:-}" ]]; then
+        echo "Enter NFS server port (default: 2049): "
+        read -r user_port
+        if [[ -n "$user_port" ]]; then
+            export NFS_PORT="$user_port"
+        else
+            export NFS_PORT="2049"
+        fi
+    fi
+    
+    if [[ -z "${NFS_PATH:-}" ]]; then
+        echo "Enter NFS mount path (default: /openbalena): "
+        read -r user_path
+        if [[ -n "$user_path" ]]; then
+            export NFS_PATH="$user_path"
+        else
+            export NFS_PATH="/openbalena"
+        fi
+    fi
+    
+    echo "==> NFS Configuration:"
+    echo "NFS_HOST: $NFS_HOST"
+    echo "NFS_PORT: $NFS_PORT"
+    echo "NFS_PATH: $NFS_PATH"
+    echo
+}
+
+# Check if NFS is configured for swarm mode
+use_swarm_nfs_volumes() {
+    [[ "${USE_NFS:-false}" == "true" ]] && [[ -n "${NFS_HOST:-}" ]] && [[ -f "docker-stack-nfs.yml" ]]
+}
+
 # Main command dispatcher
 main() {
     local command="${1:-help}"
@@ -793,6 +1067,27 @@ main() {
             ;;
         showpass)
             show_password
+            ;;
+        swarm-init)
+            swarm_init
+            ;;
+        swarm-build)
+            swarm_build_images
+            ;;
+        swarm-up)
+            swarm_start_services
+            ;;
+        swarm-down)
+            swarm_stop_services
+            ;;
+        swarm-status)
+            swarm_show_status
+            ;;
+        swarm-logs)
+            swarm_show_logs "$@"
+            ;;
+        swarm-nfs-setup)
+            swarm_setup_nfs
             ;;
         *)
             echo "Error: Unknown command '$command'"
