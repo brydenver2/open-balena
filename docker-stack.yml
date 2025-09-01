@@ -1,0 +1,475 @@
+version: '3.8'
+
+volumes:
+  cert-manager-data: {}
+  certs-data: {}
+  db-data: {}
+  pki-data: {}
+  redis-data: {}
+  resin-data: {}
+  s3-data: {}
+  builder-storage: {}
+  delta-storage: {}
+  helper-storage: {}
+
+networks:
+  default:
+    driver: overlay
+    attachable: true
+
+# Common environment variables for all services
+x-default-environment: &default-environment
+  # FIXME: hardcoded https://github.com/balena-io/open-balena-db/blob/master/create-resin-db.sh#L4
+  DB_NAME: resin
+  # FIXME: hardcoded https://github.com/balena-io/open-balena-db/blob/master/Dockerfile#L3-L4
+  DB_PASSWORD: docker
+  DB_USER: docker
+  LOG_LEVEL: DEBUG
+  PRODUCTION_MODE: 'true'
+
+# Base service configuration for Docker Swarm
+x-base-service-definition: &base-service
+  deploy:
+    restart_policy:
+      condition: unless-stopped
+  # Note: env_file is not supported in swarm mode - environment variables must be set externally
+
+services:
+  # https://github.com/balena-io/open-balena-api
+  api:
+    image: balena/open-balena-api:37.3.4
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      <<: *default-environment
+      # Core API Configuration - these should be provided via docker stack deploy --env-file
+      # or set in the environment before deployment
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+
+  # https://github.com/balena-io/open-balena-registry
+  registry:
+    image: balena/open-balena-registry:2.42.0
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      COMMON_REGION: open-balena
+      HOSTS_CONFIG: REGISTRY2_HOST:registry2,REGISTRY2_TOKEN_AUTH_ISSUER:api,REGISTRY2_TOKEN_AUTH_REALM:api
+      REGISTRY2_CACHE_ADDR: redis:6379
+      REGISTRY2_CACHE_DB: 1
+      REGISTRY2_CACHE_ENABLED: 'true'
+      REGISTRY2_S3_BUCKET: registry-data
+      REGISTRY2_STORAGEPATH: /data
+      TOKENS_CONFIG: REGISTRY2_SECRETKEY:hex,REGISTRY2_S3_KEY:hex,REGISTRY2_S3_SECRET:hex
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+
+  # https://github.com/balena-io/open-balena-vpn
+  vpn:
+    image: balena/open-balena-vpn:11.32.28
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      HOSTS_CONFIG: VPN_HOST:cloudlink
+      TOKENS_CONFIG: ','
+      VPN_HAPROXY_USEPROXYPROTOCOL: 'true'
+      VPN_PORT: 443
+      # ensure correct service instance IP is registered with the API
+      VPN_SERVICE_REGISTER_INTERFACE: eth0
+    devices:
+      - /dev/net/tun
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+
+  # https://hub.docker.com/_/redis
+  redis:
+    # https://redis.io/blog/what-redis-license-change-means-for-our-managed-service-providers/
+    image: redis:8.0-alpine
+    volumes:
+      - redis-data:/data
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: echo INFO | redis-cli | grep redis_version
+      interval: 45s
+      timeout: 15s
+      retries: 3
+
+  # Traefik reverse proxy (replaces HAProxy)
+  # Note: In Swarm mode, this uses a pre-built image
+  traefik:
+    image: openbalena/traefik:latest  # This image needs to be built and pushed
+    sysctls:
+      # https://github.com/docker-library/haproxy/issues/160
+      net.ipv4.ip_unprivileged_port_start: 0
+    healthcheck:
+      test: traefik healthcheck --ping
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    ports:
+      # HTTP
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      # HTTPS
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+      # Traefik dashboard/stats
+      - target: 1936
+        published: 1936
+        protocol: tcp
+        mode: host
+      # Remote device access TCP ports
+      - target: 10000
+        published: 10000
+        protocol: tcp
+        mode: host
+      - target: 10001
+        published: 10001
+        protocol: tcp
+        mode: host
+      - target: 10002
+        published: 10002
+        protocol: tcp
+        mode: host
+      - target: 10003
+        published: 10003
+        protocol: tcp
+        mode: host
+      - target: 10004
+        published: 10004
+        protocol: tcp
+        mode: host
+      - target: 10005
+        published: 10005
+        protocol: tcp
+        mode: host
+      - target: 10006
+        published: 10006
+        protocol: tcp
+        mode: host
+      - target: 10007
+        published: 10007
+        protocol: tcp
+        mode: host
+      - target: 10008
+        published: 10008
+        protocol: tcp
+        mode: host
+      - target: 10009
+        published: 10009
+        protocol: tcp
+        mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs-data:/certs
+      - resin-data:/balena
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+      placement:
+        constraints:
+          # Deploy on manager nodes to access Docker socket
+          - node.role == manager
+
+  # Error pages service for Traefik
+  error-pages:
+    image: openbalena/error-pages:latest  # This image needs to be built and pushed
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: curl -f http://localhost/404.html || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # dynamically configure Docker network aliases based on DNS_TLD and ALIAS list
+  traefik-sidecar:
+    image: openbalena/traefik-sidecar:latest  # This image needs to be built and pushed
+    volumes:
+      - /var/run/docker.sock:/host/run/docker.sock
+    environment:
+      DOCKER_HOST: unix:///host/run/docker.sock
+      # resolved internally as {{service}}.{{dns-tld-without-balena-device-uuid}} to traefik service
+      ALIASES: api,ca,cloudlink,db,delta,logs,redis,registry2,s3,stats,tunnel,admin,ui,postgrest,remote,builder,helper
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+      placement:
+        constraints:
+          # Deploy on manager nodes to access Docker socket
+          - node.role == manager
+
+  # https://github.com/balena-io/cert-manager
+  cert-manager:
+    image: balena/cert-manager:0.3.3
+    volumes:
+      - cert-manager-data:/etc/letsencrypt
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      # wildcard certificate for reverse proxy
+      SSH_KEY_NAMES: ','
+      SUBJECT_ALTERNATE_NAMES: '*'
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+
+  # https://github.com/balena-io/ca-private
+  balena-ca:
+    image: balena/ca-private:0.0.15
+    volumes:
+      - pki-data:/pki
+      - certs-data:/certs
+      - resin-data:/balena
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: curl --silent -I --fail localhost:8888
+      interval: 60s
+      timeout: 60s
+      retries: 10
+
+  # Cloudflare Tunnel service for secure external access
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: pgrep cloudflared || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    command: tunnel --no-autoupdate run
+
+  # OpenBalena UI - Web dashboard interface
+  ui:
+    image: harmonidcaputo/open-balena-ui:latest
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      PORT: 80
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+
+  # PostgREST - REST API for PostgreSQL
+  postgrest:
+    image: harmonidcaputo/open-balena-postgrest:latest
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+
+  # Remote - Remote device access service
+  remote:
+    image: harmonidcaputo/open-balena-remote:latest
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+
+  # Builder - Container build functionality
+  builder:
+    image: harmonidcaputo/open-balena-builder:latest
+    volumes:
+      # Persistent storage for build artifacts and cache
+      - builder-storage:/storage
+      # Docker socket for container builds
+      - /var/run/docker.sock:/var/run/docker.sock
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      # Docker configuration
+      DOCKER_BUILDKIT: '0'
+    privileged: true
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+      placement:
+        constraints:
+          # Deploy on manager nodes to access Docker socket
+          - node.role == manager
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+
+  # Delta - Delta update processing service
+  delta:
+    image: harmonidcaputo/open-balena-delta:latest
+    volumes:
+      # Persistent storage for delta processing workspace
+      - delta-storage:/storage
+      # Volume for balena-engine overlay2 filesystem support
+      - /var/lib/balena-engine:/var/lib/balena-engine
+      # Volume for rsync deltas (v2 delta support)
+      - /delta-rsync:/delta-rsync
+      # Docker socket for container operations
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Certificate volume for authentication (API public key)
+      - certs-data:/certs
+      - resin-data:/balena
+    environment:
+      # Docker host configuration
+      DOCKER_HOST: unix:///var/run/docker.sock
+      # Docker configuration
+      DOCKER_BUILDKIT: '0'
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+
+  # Helper - Utility functions service
+  helper:
+    image: harmonidcaputo/open-balena-helper:latest
+    volumes:
+      # Persistent storage for downloads and supervisor releases
+      - helper-storage:/storage
+      - certs-data:/certs
+      - resin-data:/balena
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+
+  # --- End of runtime services ---
