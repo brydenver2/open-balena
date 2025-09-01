@@ -31,7 +31,7 @@ x-default-environment: &default-environment
 x-base-service-definition: &base-service
   deploy:
     restart_policy:
-      condition: unless-stopped
+      condition: any
   # Note: env_file is not supported in swarm mode - environment variables must be set externally
 
 services:
@@ -47,7 +47,7 @@ services:
       # or set in the environment before deployment
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: /usr/src/app/docker-hc
       interval: 45s
@@ -79,7 +79,7 @@ services:
       TOKENS_CONFIG: REGISTRY2_SECRETKEY:hex,REGISTRY2_S3_KEY:hex,REGISTRY2_S3_SECRET:hex
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: /usr/src/app/docker-hc
       interval: 45s
@@ -111,7 +111,7 @@ services:
       - /dev/net/tun
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: /usr/src/app/docker-hc
       interval: 45s
@@ -135,7 +135,7 @@ services:
       - redis-data:/data
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: echo INFO | redis-cli | grep redis_version
       interval: 45s
@@ -225,7 +225,7 @@ services:
       - /sys/fs/cgroup
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
       placement:
         constraints:
           # Deploy on manager nodes to access Docker socket
@@ -236,7 +236,7 @@ services:
     image: openbalena/error-pages:latest  # This image needs to be built and pushed
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: curl -f http://localhost/404.html || exit 1
       interval: 30s
@@ -254,7 +254,7 @@ services:
       ALIASES: api,ca,cloudlink,db,delta,logs,redis,registry2,s3,stats,tunnel,admin,ui,postgrest,remote,builder,helper
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
       placement:
         constraints:
           # Deploy on manager nodes to access Docker socket
@@ -273,7 +273,7 @@ services:
       SUBJECT_ALTERNATE_NAMES: '*'
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
 
   # https://github.com/balena-io/ca-private
   balena-ca:
@@ -284,7 +284,7 @@ services:
       - resin-data:/balena
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: curl --silent -I --fail localhost:8888
       interval: 60s
@@ -296,7 +296,7 @@ services:
     image: cloudflare/cloudflared:latest
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: pgrep cloudflared || exit 1
       interval: 30s
@@ -314,7 +314,7 @@ services:
       PORT: 80
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: /usr/src/app/docker-hc
       interval: 45s
@@ -337,7 +337,7 @@ services:
       - resin-data:/balena
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: /usr/src/app/docker-hc
       interval: 45s
@@ -360,7 +360,7 @@ services:
       - resin-data:/balena
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: /usr/src/app/docker-hc
       interval: 45s
@@ -391,7 +391,7 @@ services:
     privileged: true
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
       placement:
         constraints:
           # Deploy on manager nodes to access Docker socket
@@ -432,7 +432,7 @@ services:
       DOCKER_BUILDKIT: '0'
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: /usr/src/app/docker-hc
       interval: 45s
@@ -457,7 +457,7 @@ services:
       - resin-data:/balena
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     healthcheck:
       test: /usr/src/app/docker-hc
       interval: 45s
