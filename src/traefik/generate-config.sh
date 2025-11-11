@@ -1,7 +1,29 @@
 #!/bin/sh
 
-# Script to generate Traefik dynamic configuration with proper auth
-# This replaces the template placeholders with actual values
+# generate-config.sh - Traefik Dynamic Configuration Generator
+#
+# This script generates Traefik's dynamic configuration at container startup
+# by processing template files and replacing environment variables with actual values.
+#
+# Key responsibilities:
+# - Validates required environment variables (DNS_TLD, BALENA_DEVICE_UUID)
+# - Generates authentication hashes for protected services
+# - Creates dynamic routing configuration from templates
+# - Ensures configuration files are properly formatted and placed
+#
+# Environment variables required:
+# - DNS_TLD: The domain name for routing rules (e.g., example.com)
+# - BALENA_DEVICE_UUID: Device UUID for authentication
+#
+# Template files:
+# - /etc/traefik/templates/config.yml - Main routing and service config
+# - /etc/traefik/templates/errors.yml - Error page configuration
+#
+# Output:
+# - /etc/traefik/dynamic/config.yml - Generated routing configuration
+# - /etc/traefik/dynamic/errors.yml - Error page configuration
+#
+# This script runs as part of the container entrypoint before Traefik starts.
 
 set -e
 

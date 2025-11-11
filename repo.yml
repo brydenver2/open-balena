@@ -1,3 +1,14 @@
+# Repository Configuration (repo.yml)
+# This file defines upstream dependencies for the openBalena project
+# Used by automation tools to track and update component versions
+#
+# Each upstream repository represents a core openBalena service:
+# - open-balena-api: Main API service for device and application management
+# - open-balena-vpn: VPN service for secure device connectivity
+# - open-balena-registry: Container registry for storing device images
+# - open-balena-db: PostgreSQL database service
+# - open-balena-s3: S3-compatible object storage service (MinIO)
+
 ---
 type: generic
 upstream:

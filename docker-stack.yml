@@ -1,5 +1,30 @@
 version: '3.8'
 
+# OpenBalena Docker Swarm Stack Configuration
+# This file defines the cluster (multi-node) deployment of OpenBalena services using Docker Swarm
+# For standalone deployment, see docker-compose.yml
+#
+# Key Differences from Docker Compose:
+# - Uses overlay networks for multi-node communication
+# - Requires pre-built images (no build contexts in swarm mode)
+# - Service placement constraints for manager-only services
+# - No env_file support - environment variables must be set before deployment
+# - Built-in service discovery replaces depends_on
+# - Automatic load balancing and rolling updates
+#
+# Usage:
+#   docker stack deploy -c docker-stack.yml openbalena     # Deploy stack
+#   docker stack rm openbalena                             # Remove stack
+#   docker service ls                                      # List services
+#   docker service logs openbalena_api                     # View logs
+#
+# Prerequisites:
+#   1. Initialize swarm: docker swarm init
+#   2. Build images: ./open-balena.sh swarm-build
+#   3. Set environment variables in .env file
+#
+# See docs/docker-swarm-deployment.md for detailed deployment guide
+
 volumes:
   cert-manager-data: {}
   certs-data: {}
@@ -12,6 +37,7 @@ volumes:
   delta-storage: {}
   helper-storage: {}
 
+# Overlay network allows services to communicate across swarm nodes
 networks:
   default:
     driver: overlay
