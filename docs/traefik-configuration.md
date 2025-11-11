@@ -69,7 +69,7 @@ Optional:
 
 ## Migration from HAProxy
 
-See [docs/traefik-migration.md](../docs/traefik-migration.md) for complete migration details.
+See [traefik-migration.md](traefik-migration.md) for complete migration details.
 
 ## Debugging
 

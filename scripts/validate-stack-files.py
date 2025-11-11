@@ -1,7 +1,26 @@
 #!/usr/bin/env python3
 
 """
-Validate Docker Stack files for Swarm compatibility
+validate-stack-files.py - Docker Stack File Validator
+
+This script validates Docker Stack YAML files for Docker Swarm compatibility.
+It checks for common issues that prevent successful swarm deployment:
+- YAML syntax errors
+- Swarm-incompatible features (build contexts, depends_on, etc.)
+- Missing required sections (version, services)
+- Deployment configuration best practices
+
+Usage:
+    python3 scripts/validate-stack-files.py
+
+Exit codes:
+    0 - All stack files are valid
+    1 - One or more stack files have errors
+
+Files checked:
+    - docker-stack.yml (main swarm stack)
+    - docker-stack-internal.yml (internal services)
+    - docker-stack-nfs.yml.template (NFS volume template)
 """
 
 import yaml

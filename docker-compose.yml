@@ -1,3 +1,20 @@
+# OpenBalena Docker Compose Configuration
+# This file defines the standalone (single-node) deployment of OpenBalena services
+# For cluster deployment, see docker-stack.yml (Docker Swarm mode)
+#
+# Key Components:
+# - YAML anchors (x-*) define reusable configuration blocks
+# - Service definitions specify container images, networks, volumes, and environment variables
+# - Volumes persist data across container restarts
+# - Healthchecks monitor service availability
+#
+# Usage:
+#   docker-compose up -d           # Start all services
+#   docker-compose down            # Stop all services
+#   docker-compose logs SERVICE    # View service logs
+#
+# See README.md and docs/getting-started.md for more information
+
 volumes:
   cert-manager-data: {}
   certs-data: {}
@@ -10,12 +27,14 @@ volumes:
   delta-storage: {}
   helper-storage: {}
 
+# Reusable healthcheck configuration for services with docker-hc script
 x-default-healthcheck: &default-healthcheck
   test: /usr/src/app/docker-hc
   interval: 45s
   timeout: 15s
   retries: 3
 
+# Common environment variables used by most OpenBalena services
 x-default-environment: &default-environment
   # FIXME: hardcoded https://github.com/balena-io/open-balena-db/blob/master/create-resin-db.sh#L4
   DB_NAME: resin

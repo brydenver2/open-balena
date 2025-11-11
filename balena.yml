@@ -1,3 +1,10 @@
+# OpenBalena Application Configuration (balena.yml)
+# This file defines the application metadata for deploying openBalena on balenaCloud
+# It is used when deploying openBalena as a balena application
+#
+# For more information about balena.yml:
+# https://www.balena.io/docs/reference/balena-yml/
+
 name: openBalena
 type: sw.application
 description: https://www.balena.io/open
@@ -17,10 +24,14 @@ assets:
     type: blob.asset
     data:
       url: 'https://raw.githubusercontent.com/balena-io/open-balena/master/logo.png'
+
+# Device configuration
 data:
   defaultDeviceType: generic-amd64
   supportedDeviceTypes:
     - generic-amd64
     - genericx86-64-ext
     - intel-nuc
+
+# Current version (updated automatically by versionist)
 version: 4.1.452
