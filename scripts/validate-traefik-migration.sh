@@ -138,10 +138,10 @@ else
     exit 1
 fi
 
-if [[ -f "src/traefik/README.md" ]]; then
-    echo "✅ Found Traefik README"
+if [[ -f "docs/traefik-configuration.md" ]]; then
+    echo "✅ Found Traefik configuration documentation"
 else
-    echo "❌ Missing Traefik README"
+    echo "❌ Missing Traefik configuration documentation"
     exit 1
 fi
 
@@ -160,7 +160,7 @@ echo "4. Run './open-balena.sh verify' to test API connectivity"
 echo ""
 echo "For more information, see:"
 echo "- docs/traefik-migration.md - Migration guide"
-echo "- src/traefik/README.md - Traefik configuration details"
+echo "- docs/traefik-configuration.md - Traefik configuration details"
 echo ""
 echo "Note: This validation is automatically run before starting services"
 echo "when using './open-balena.sh up', 'auto-pki', or 'custom-pki' commands."
