@@ -22,7 +22,7 @@ services:
       retries: 3
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     networks:
       - default
 
@@ -52,7 +52,7 @@ services:
       - /sys/fs/cgroup
     deploy:
       restart_policy:
-        condition: unless-stopped
+        condition: any
     networks:
       - default
 

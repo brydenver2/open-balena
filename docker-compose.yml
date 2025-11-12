@@ -544,3 +544,8 @@ services:
 
 
   # --- End of runtime services ---
+
+networks:
+  default:
+    driver: bridge
+    name: open-balena_default
